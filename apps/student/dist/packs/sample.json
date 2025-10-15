@@ -1,0 +1,26 @@
+[
+  {
+    "id": "Q1",
+    "stem": "1/2 = ?",
+    "choices": [
+      {
+        "key": "A",
+        "text": "0.5"
+      },
+      {
+        "key": "B",
+        "text": "0.25"
+      },
+      {
+        "key": "C",
+        "text": "0.75"
+      },
+      {
+        "key": "D",
+        "text": "0.2"
+      }
+    ],
+    "answerKey": "A",
+    "explanation": "1/2 = 0.5"
+  }
+]

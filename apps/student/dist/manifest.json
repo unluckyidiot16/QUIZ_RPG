@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "assets/index-BDvLqHLw.css",
+      "sha256": "sha256-ECr/aFqXjeWLFywmeRJMb4EBdX1R5jRAGMfQwRMDZzo="
+    },
+    {
+      "path": "assets/index-Cy63QxCF.js",
+      "sha256": "sha256-UqJud+U+W9jbdYaSjSA9qihH9kSMeiyypmNhaEWR+EQ="
+    },
+    {
+      "path": "index.html",
+      "sha256": "sha256-6yQoo1s8+k5kMp7iYEDh1CHqoQvw0ILD4UMuDVVpHc8="
+    },
+    {
+      "path": "packs/sample.json",
+      "sha256": "sha256-1Ec7hkqWZlYqNgM923K0VvqeaFxlLm3kemEBMQo0VJ4="
+    }
+  ]
+}
