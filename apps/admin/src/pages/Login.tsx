@@ -6,7 +6,10 @@ export default function Login() {
   const [sent, setSent] = useState(false);
 
   async function send() {
-    await sb.auth.signInWithOtp({ email }); // Supabase Auth에서 Email OTP 활성화 필요
+    await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin } // ← 현재 도메인으로 귀환
+    });
     setSent(true);
   }
 
