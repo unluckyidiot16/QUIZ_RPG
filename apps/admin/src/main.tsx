@@ -1,28 +1,20 @@
-
-import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import Login from './pages/Login';
+import Runs from './pages/Runs';
+import { sb } from './sb';
 
-function Home(){
-  return (
-    <div className="p-6" style={{fontFamily:'system-ui'}}>
-      <h1 style={{fontWeight:800,fontSize:24}}>오늘의 던전 — Admin</h1>
-      <ul>
-        <li><Link to="/runs">Runs</Link></li>
-        <li><Link to="/gacha">Gacha Pools</Link></li>
-      </ul>
-    </div>
-  );
+function Gate() {
+  const [ready, setReady] = useState(false);
+  const [authed, setAuthed] = useState(false);
+  useEffect(() => {
+    sb.auth.getSession().then(({ data }) => { setAuthed(!!data.session); setReady(true); });
+    const { data: sub } = sb.auth.onAuthStateChange((_e, s) => setAuthed(!!s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  if (!ready) return <div className="p-6">로딩…</div>;
+  return authed ? <Runs/> : <Login/>;
 }
-function Runs(){ return <div className="p-6" style={{fontFamily:'system-ui'}}>Runs Placeholder</div>; }
-function Gacha(){ return <div className="p-6" style={{fontFamily:'system-ui'}}>Gacha Placeholder</div>; }
 
-createRoot(document.getElementById('root')!).render(
-  <BrowserRouter>
-    <Routes>
-      <Route path="/" element={<Home/>} />
-      <Route path="/runs" element={<Runs/>} />
-      <Route path="/gacha" element={<Gacha/>} />
-    </Routes>
-  </BrowserRouter>
-);
+const router = createBrowserRouter([{ path: '/', element: <Gate/> }]);
+createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);

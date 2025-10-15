@@ -1,7 +1,9 @@
 // apps/student/src/views/Play.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Proof } from '../lib/proof';
+import { newRunToken, resetLocalRunState } from '../api';   // ⬅️ 추가 import
+
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
 type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
@@ -18,10 +20,19 @@ export default function Play(){
   const [q, setQ] = useState<Question | null>(null);
   const [msg, setMsg] = useState('');
   const [proof, setProof] = useState<Proof | null>(null);
+  const startedRef = useRef(false); // dev StrictMode에서도 1회만 실행
 
   // 1) Proof 초기화
   useEffect(() => {
-    (async () => setProof(await Proof.create()))();
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    (async () => {
+      await newRunToken();          // ⬅️ 새 run_id 강제 발급
+      resetLocalRunState();         // ⬅️ 이전 결과 표시는 초기화
+      setProof(await Proof.create());
+      // (이후 질문팩 fetch 등 기존 로딩 로직 계속)
+    })();
   }, []);
 
   // 2) 팩 로딩 (절대경로 + 에러 처리 + 언마운트 안전)
