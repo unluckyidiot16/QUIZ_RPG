@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # pnpm 10.18.3 고정
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.3
+          run_install: false
+
+      # Node LTS 20.x + pnpm 스토어 캐시
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'pnpm'
+
+      - name: Enable Corepack (safety)
+        run: corepack enable
+
+      - name: Show tool versions
+        run: |
+          node -v
+          pnpm -v
+
+      - name: Install deps (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      # 단위테스트가 있으면 --if-present로 안전 실행
+      - name: Test
+        run: pnpm -r --if-present test
+
+      # 모노레포 전체 빌드(앱만 빌드하려면 filter 사용)
+      - name: Build
+        run: pnpm -r --filter "./apps/*" run build
