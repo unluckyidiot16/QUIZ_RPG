@@ -1,0 +1,27 @@
+{
+  "name": "quiz-rpg",
+  "private": true,
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "prepare": "husky install",
+    "typecheck": "tsc -b",
+    "lint": "eslint . --ext .ts,.tsx",
+    "build": "pnpm -r --filter ./apps/* run build",
+    "dev:student": "pnpm --filter @apps/student dev",
+    "dev:admin": "pnpm --filter @apps/admin dev",
+    "manifest": "tsx scripts/build-manifest.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "eslint": "^9.9.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.1",
+    "@typescript-eslint/parser": "^8.0.1",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.9",
+    "tsx": "^4.16.2",
+    "typescript": "^5.6.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,css,md}": ["prettier --write"]
+  }
+}
