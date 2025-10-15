@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.75.0
+        version: 2.75.0
     devDependencies:
       '@types/node':
         specifier: ^20.11.16
@@ -35,6 +39,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.75.0
+        version: 2.75.0
       react:
         specifier: ^18.3.1
         version: 18.3.1
