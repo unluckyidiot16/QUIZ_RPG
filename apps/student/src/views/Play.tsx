@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Proof } from '../lib/proof';
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
 type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
@@ -19,29 +20,24 @@ export default function Play(){
   const [msg, setMsg] = useState<string>('');
   const [turns, setTurns] = useState(0);
   const [start] = useState(performance.now());
+  const [proof, setProof] = useState<Proof | null>(null);
+
+  useEffect(() => { (async () => setProof(await Proof.create()))(); }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/packs/${pack}.json`);
-        const arr: Question[] = await res.json();
-        setQ(arr[0] ?? null);
-      } catch(e){
-        setMsg('팩 로딩 실패');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [pack]);
+    // 문제 로딩 후 한 번 기록
+    if (q && proof){ proof.log({ type: 'q_shown', id: q.id }); }
+  }, [q, proof]);
 
-  function onAnswer(key: Choice['key']){
-    if(!q) return;
+  async function onAnswer(key: Choice['key']){
+    if(!q || !proof) return;
     const correct = q.answerKey === key;
+    await proof.log({ type: 'answer', id: q.id, pick: key, correct });
     setTurns(t => t+1);
     setMsg(correct ? '정답!' : '오답 💦');
-    setTimeout(() => {
-      const durationSec = Math.round((performance.now() - start)/1000);
-      localStorage.setItem('qd:lastResult', JSON.stringify({ cleared: correct, turns: turns+1, durationSec }));
+    setTimeout(async () => {
+      const s = await proof.summary(correct);
+      localStorage.setItem('qd:lastResult', JSON.stringify(s));
       nav('/result');
     }, 600);
   }
