@@ -3,7 +3,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './index.css';
-import './sw-register';
+//import './sw-register';
 import Main from './views/Main';
 import Lobby from './views/Lobby';
 import Play from './views/Play';
