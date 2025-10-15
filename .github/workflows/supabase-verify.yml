@@ -1,0 +1,67 @@
+
+name: Supabase Migrations Verify
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+  push:
+    branches: [ main ]
+    paths:
+      - "supabase/**"
+
+concurrency:
+  group: supabase-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start Supabase (minimal)
+        run: supabase start -x studio,imgproxy,logflare,edge-runtime
+      - name: Apply migrations
+        run: supabase db reset --local
+      - name: Install psql
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Smoke tests
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "54322"
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -c "select to_regclass('quiz.users') is not null as ok;"
+          psql -v ON_ERROR_STOP=1 -c "select to_regclass('quiz.run_summaries') is not null as ok;"
+          psql -v ON_ERROR_STOP=1 -t -A -c "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='quiz' and p.proname in ('auth_login','enter_dungeon','finish_dungeon');"
+          psql -v ON_ERROR_STOP=1 -c "select quiz.auth_login('ci_user');"
+          psql -v ON_ERROR_STOP=1 -c "select quiz.enter_dungeon();"
+          psql -v ON_ERROR_STOP=1 -c "
+          with u as (select quiz.auth_login('ci_user2') as uid),
+               r as (select quiz.enter_dungeon() as rid)
+          select quiz.finish_dungeon(
+            (select rid from r),
+            (select uid from u),
+            'ci-token-1','deadbeef',3,10,true
+          );"
+          psql -v ON_ERROR_STOP=1 -c "
+          with u as (select (select user_id from quiz.users order by created_at desc limit 1) as uid),
+               r as (select (select run_id  from quiz.runs  order by opened_at desc limit 1) as rid)
+          select quiz.finish_dungeon(
+            (select rid from r),
+            (select uid from u),
+            'ci-token-1','deadbeef',3,10,true
+          );"
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
