@@ -74,7 +74,7 @@ async function main(){
     if (active === false) { skipped++; continue; }
 
     const id   = String(get(r,'id') ?? '').trim();
-    const name = String(get(r,'name') ?? id).trim();
+    const name = String((get(r,'name') ?? id) || '').trim();
     const slot = String(get(r,'slot') ?? '').trim();
     let   pth  = String(get(r,'path') ?? '').trim();
 

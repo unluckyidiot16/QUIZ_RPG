@@ -67,7 +67,8 @@ export async function fetchWearablesFromSheet(opts: {
     if (active === false) continue;
 
     const id = String(get(r,'id') ?? '').trim();
-    const name = String(get(r,'name') ?? id || '').trim();
+    const nameCell = get(r,'name');
+    const name = String((nameCell ?? id) || '').trim();
     const slot = String(get(r,'slot') ?? '').trim(); // 'Hat' 등
     let path = String(get(r,'path') ?? '').trim();   // 절대 or 상대
 

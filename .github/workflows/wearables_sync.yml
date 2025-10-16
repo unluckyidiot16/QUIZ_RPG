@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
   schedule:
-    # 매일 아침 6시(KST=UTC+9 기준, 여기선 UTC 21시)
+    # 매일 아침 6시 KST (UTC 21시)
     - cron: "0 21 * * *"
 
 permissions:
@@ -32,13 +32,16 @@ jobs:
 
       - name: Generate JSON from Google Sheet
         env:
-          SHEET_ID: ${{ secrets.1zwKrUcOJtajPdOu9QKmkYzNniIscTKMnNd4G5gudEhQ }}   # 스프레드시트 ID (필수)
-          SHEET_NAME: ${{ vars.WearableItem }}  # 시트 탭 이름 (없으면 비워두기)
-          ASSETS_ROOT: ${{ vars.https://unluckyidiot16.github.io/assets-common/QuizRpg/ }} 
+          # ✅ 레포지토리 Settings → Secrets and variables → Actions
+          #    - Secrets:    WEAR_SHEET_ID  (값: 구글 시트 ID)
+          #    - Variables:  WEAR_SHEET_NAME (예: Wearables) [옵션]
+          #    - Variables:  ASSETS_ROOT     (예: https://unluckyidiot16.github.io/assets-common/QuizRpg/)
+          SHEET_ID: ${{ secrets.WEAR_SHEET_ID }}
+          SHEET_NAME: ${{ vars.WEAR_SHEET_NAME }}
+          ASSETS_ROOT: ${{ vars.ASSETS_ROOT }}
           OUT_PATH: apps/student/public/packs/wearables.v1.json
           FORCE: ${{ github.event.inputs.force || 'false' }}
-        run: |
-          node scripts/sheet_to_wearables.mjs
+        run: node scripts/sheet_to_wearables.mjs
 
       - name: Commit & Push (if changed)
         run: |
@@ -52,7 +55,7 @@ jobs:
             git push
           fi
 
-      # 보호 브랜치라 직접 푸시가 막히면 위 커밋 스텝을 주석 처리하고 아래 PR 스텝을 사용하세요.
+      # 보호 브랜치면 PR로 전환
       # - name: Create Pull Request
       #   uses: peter-evans/create-pull-request@v6
       #   with:
