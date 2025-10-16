@@ -4,6 +4,8 @@ import { makeServices } from '../core/service.locator';
 import type { Equipped, WearableItem } from '../core/wearable.types';
 import { loadWearablesCatalog } from '../core/wearable.catalog';
 import { equippedToLayers } from '../core/wearable.adapter';
+import { onInventoryChanged } from '../core/inv.bus';
+import { preloadImages } from '../shared/ui/preload'; // ✅ 누락 import 추가
 
 export default function AppHeader() {
   const { inv } = useMemo(() => makeServices(), []);
@@ -11,24 +13,37 @@ export default function AppHeader() {
   const [catalog, setCatalog] = useState<Record<string, WearableItem>>({});
   const [ready, setReady] = useState(false);
 
+  // ✅ 초기 로드
   useEffect(() => {
     (async () => {
-      const [s, cat] = await Promise.all([
-        inv.load(),            // 착용 정보
-        loadWearablesCatalog() // 시트→JSON 카탈로그
-      ]);
-      setEquipped((s.equipped || {}) as Equipped);
-      setCatalog(cat);
-      setReady(true);
+      try {
+        const [s, cat] = await Promise.all([inv.load(), loadWearablesCatalog()]);
+        setEquipped((s.equipped || {}) as Equipped);
+        setCatalog(cat);
+      } finally {
+        setReady(true);
+      }
     })();
   }, [inv]);
 
-  const layers = useMemo(() => equippedToLayers(equipped, catalog), [equipped, catalog]);
+  // ✅ 인벤토리 변경 이벤트 반영
+  useEffect(() => {
+    const off = onInventoryChanged(async () => {
+      const [s, cat] = await Promise.all([inv.load(), loadWearablesCatalog()]);
+      setEquipped((s.equipped || {}) as Equipped);
+      setCatalog(cat);
+    });
+    return off;
+  }, [inv]);
+
+  const layers = React.useMemo(() => equippedToLayers(equipped, catalog), [equipped, catalog]);
+
+  // ✅ 프리로드
+  useEffect(() => { preloadImages(layers.map(l => l.src)); }, [layers]);
 
   return (
     <header className="w-full px-4 py-3 flex items-center gap-3 bg-slate-900/60">
       <div className="shrink-0">
-        {/* 카탈로그가 로드되면 즉시 렌더; 로딩 중엔 자리만 잡아둠 */}
         {ready ? (
           <AvatarRenderer layers={layers} size={120} corsMode="none" />
         ) : (
