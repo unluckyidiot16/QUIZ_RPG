@@ -2,7 +2,7 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { newRunToken, resetLocalRunState, ensureRunToken, finishDungeon, type RunSummary } from '../api';
-import { initQueue, enqueue } from '../lib/queue';
+import { initQueue, enqueue } from '../shared/lib/queue';
 
 type Resp = { ok: true; idempotent: boolean } | null;
 
