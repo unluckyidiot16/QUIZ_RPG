@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { accessService, TempToken } from '@/lib/accessService';
+import { accessService, TempToken } from '../shared/lib/accessService';
 import QRCode from 'qrcode'; // npm i qrcode
 
 const toQR = async (text: string) => await QRCode.toDataURL(text, { margin: 1, scale: 6 });

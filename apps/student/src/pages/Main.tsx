@@ -9,6 +9,10 @@ export default function Main(){
       <div className="mt-6 grid gap-3 grid-cols-2">
         <Link className="text-center px-4 py-3 bg-emerald-600 rounded" to="/lobby">로비</Link>
         <Link className="text-center px-4 py-3 bg-indigo-600 rounded" to="/play">전투(퀴즈)</Link>
+        <Link className="text-center px-4 py-3 bg-slate-700 rounded" to="/gacha">가챠</Link>
+        <Link className="text-center px-4 py-3 bg-slate-700 rounded" to="/inventory">인벤토리</Link>
+        <Link className="text-center px-4 py-3 bg-slate-700 rounded" to="/wardrobe">옷장</Link>
+        <Link className="text-center px-4 py-3 bg-slate-700 rounded" to="/codex">도감</Link>
       </div>
       <p className="mt-6 text-sm opacity-70">팁: <code>?pack=sample</code> 쿼리로 샘플 팩을 불러올 수 있어요.</p>
     </div>

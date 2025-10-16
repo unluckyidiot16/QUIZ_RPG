@@ -1,9 +1,8 @@
 // apps/student/src/views/Play.tsx
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Proof } from '../lib/proof';
-import { newRunToken, resetLocalRunState } from '../api';   // ⬅️ 추가 import
-
+import { Proof } from '../shared/lib/proof';
+import { guestLogin, newRunToken, resetLocalRunState } from '../api';
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
 type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
@@ -24,14 +23,18 @@ export default function Play(){
 
   // 1) Proof 초기화
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
     (async () => {
-      await newRunToken();          // ⬅️ 새 run_id 강제 발급
-      resetLocalRunState();         // ⬅️ 이전 결과 표시는 초기화
-      setProof(await Proof.create());
-      // (이후 질문팩 fetch 등 기존 로딩 로직 계속)
+      try {
+        const qs = new URLSearchParams(location.search);
+        const t = qs.get('t');
+        if (t) await guestLogin(t);      // ① QR 토큰 로그인
+        await newRunToken();             // ② 서버에서 run_id 발급 후 로컬 저장
+        // ... 이후 팩 로드 & 플레이 시작
+      } catch (e:any) {
+        setMsg(e?.message ?? '접속 권한이 없거나 만료되었습니다.');
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 

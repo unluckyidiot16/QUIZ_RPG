@@ -81,3 +81,12 @@ export function resetLocalRunState() {
   // 이전 결과/표시 상태는 깨끗하게 비웁니다 (큐에는 영향 X)
   localStorage.removeItem('qd:lastResult');
 }
+
+export async function guestLogin(token: string): Promise<string> {
+  if (!SUPABASE_READY) throw new Error('서버 설정 누락');
+  const { data, error } = await getClient().rpc('guest_login', { p_token: token });
+  if (error) throw error;
+  const userId = data as string;
+  localStorage.setItem('qd:userId', userId);
+  return userId;
+}

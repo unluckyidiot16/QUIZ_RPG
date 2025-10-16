@@ -1,6 +1,6 @@
 
 [build]
-  command = "pnpm -w i --frozen-lockfile && pnpm --filter @apps/admin build && pnpm -w manifest:admin && pnpm -w sri:admin"
+  command = "pnpm i --frozen-lockfile && pnpm build"
   publish = "dist"
 
 [build.environment]
