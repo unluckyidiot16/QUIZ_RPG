@@ -1,5 +1,5 @@
-// apps/student/src/views/Result.tsx
-import { useNavigate, Link } from 'react-router-dom';
+// apps/student/src/pages/Result.tsx
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { newRunToken, resetLocalRunState, ensureRunToken, finishDungeon, type RunSummary } from '../api';
 import { initQueue, enqueue } from '../shared/lib/queue';
@@ -8,26 +8,47 @@ type Resp = { ok: true; idempotent: boolean } | null;
 
 export default function Result() {
   const nav = useNavigate();
-  // 페이지 진입 시 오프라인 재시도 큐 가동
+
+  // 오프라인 재시도 큐 가동
   useEffect(() => { initQueue(finishDungeon); }, []);
 
   async function restart() {
-    // “다시하기”는 즉시 새 런 발급 후 전투 화면으로
     await newRunToken();
     resetLocalRunState();
     nav('/play', { replace: true });
   }
 
   function goHome() {
-    // 메인으로만 돌아갈 땐 표시만 리셋 (새 런은 Play 입장 시 발급)
     resetLocalRunState();
     nav('/', { replace: true });
   }
-  
-  const dataRaw = localStorage.getItem('qd:lastResult');
-  const data = useMemo(() => (dataRaw ? JSON.parse(dataRaw) : null) as
-    | Omit<RunSummary, 'runToken'>
-    | null, [dataRaw]);
+
+  // 저장된 결과 읽기 — 객체/배열 모두 허용
+  const raw = localStorage.getItem('qd:lastResult');
+  const parsed: any = useMemo(() => (raw ? JSON.parse(raw) : null), [raw]);
+
+  // 호환: 배열(턴 로그)로 저장된 옛 포맷도 요약으로 변환
+  const data: Omit<RunSummary, 'runToken'> | null = useMemo(() => {
+    if (!parsed) return null;
+    if (Array.isArray(parsed)) {
+      const turns = parsed;
+      const total = turns.length || 0;
+      const correct = turns.filter((t: any) => t?.correct).length;
+      const cleared = correct >= Math.ceil(Math.max(1, total) * 0.6);
+      const durationSec = Number(localStorage.getItem('qd:lastDurationSec') || '0') || 0;
+      return { cleared, turns: total, durationSec };
+    }
+    // 객체 포맷
+    const { cleared, turns, durationSec } = parsed;
+    if (typeof turns === 'number') {
+      return {
+        cleared: Boolean(cleared),
+        turns: Math.max(0, turns|0),
+        durationSec: Math.max(0, Number(durationSec) || 0),
+      };
+    }
+    return null;
+  }, [parsed]);
 
   const [resp, setResp] = useState<Resp>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -37,7 +58,6 @@ export default function Result() {
     setSubmitting(true);
     let runToken: string;
     try {
-      // runToken 발급 (없으면 신규, 있으면 재사용)
       runToken = await ensureRunToken();
     } catch (e) {
       console.error('enter_dungeon failed', e);
@@ -51,12 +71,10 @@ export default function Result() {
       const r = await finishDungeon(summary);
       setResp(r);
     } catch (e) {
-      // 오프라인/서버 오류 → 큐에 적재하여 백그라운드 재시도
       enqueue(summary);
       console.error('finish_dungeon failed', e);
       alert('오프라인/오류: 네트워크 복구 시 자동 재시도합니다.');
     } finally {
-      // 중복 클릭 방지 타임가드(약간의 쿨다운)
       setTimeout(() => setSubmitting(false), 1200);
     }
   }
@@ -111,7 +129,6 @@ export default function Result() {
           </button>
         </div>
 
-        {/* 서버 응답 표시(멱등 여부 시각화) */}
         {resp && (
           <div className={`mt-2 inline-flex items-center gap-2 px-2 py-1 rounded text-sm ${
             resp.idempotent ? 'bg-slate-700' : 'bg-emerald-700'
@@ -119,9 +136,7 @@ export default function Result() {
             <span className="font-semibold">
               {resp.idempotent ? '이미 제출됨(멱등 처리)' : '제출 완료'}
             </span>
-            <span className="opacity-80">
-              idempotent=<b>{String(resp.idempotent)}</b>
-            </span>
+            <span className="opacity-80">idempotent=<b>{String(resp.idempotent)}</b></span>
           </div>
         )}
       </div>

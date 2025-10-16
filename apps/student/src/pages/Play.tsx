@@ -1,25 +1,20 @@
-// Play.tsx — 전투 씬 완성본 (QR 로그인 → 런 발급 → 팩 로드/정규화 → 진행/기록 → 결과)
-// - API 경로가 프로젝트마다 다를 수 있어요. core/api 경로가 다르면 아래 import만 조정하세요.
-// - Proof 모듈은 동적 import로 불러와 시그니처 차이(Proof | default)를 흡수합니다.
-
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+// apps/student/src/pages/Play.tsx
+// 전투 씬: QR 토큰 로그인 → 런 발급 → 팩 로드/정규화 → 진행/기록 → 결과 저장(로컬) → /result
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// API는 프로젝트 구현에 맞춰 자동 탐지: ensureRunToken → newRunToken → enterDungeon
-import * as api from '../core/api';
+// ⚠️ Result.tsx가 '../api'를 쓰고 있으니 여기도 동일 경로로 맞춰 드롭 인
+import * as api from '../api';
 
-// ──────────────────────────────────────────────────────────────────────────────
-// 타입 & 정규화 유틸
-// ──────────────────────────────────────────────────────────────────────────────
-export type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
-export type Question = {
-  id: string;
-  stem: string;
-  choices: Choice[];
-  answerKey: Choice['key'];
-  explanation?: string;
-};
+type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
+type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
+type Turn = { id: string; pick: Choice['key']; correct: boolean };
 
-function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Question['answerKey'] | null {
+function usePackParam() {
+  const qs = new URLSearchParams(location.search);
+  return qs.get('pack') || 'sample';
+}
+
+function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
   if (typeof answerKey === 'string' && /^[ABCD]$/.test(answerKey)) return answerKey as any;
   if (typeof answer === 'string' && /^[ABCD]$/.test(answer)) return answer as any;
   const idx = (typeof correctIndex === 'number' ? correctIndex
@@ -33,7 +28,7 @@ function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): 
 function normalizeQuestion(raw: any, i: number): Question | null {
   if (!raw) return null;
 
-  // 1) 이미 표준 형태
+  // 1) 표준 {stem, choices[], answerKey}
   if (raw.stem && Array.isArray(raw.choices)) {
     const arr = raw.choices as any[];
     const normChoices: Choice[] = arr.slice(0, 4).map((t, idx) => ({
@@ -45,7 +40,7 @@ function normalizeQuestion(raw: any, i: number): Question | null {
     return { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans, explanation: raw.explanation };
   }
 
-  // 2) options/answers 배열 형태
+  // 2) {stem, options[]}
   if (raw.stem && Array.isArray(raw.options)) {
     const normChoices: Choice[] = (raw.options as any[]).slice(0, 4).map((t, idx) => ({
       key: (['A','B','C','D'] as const)[idx],
@@ -56,12 +51,10 @@ function normalizeQuestion(raw: any, i: number): Question | null {
     return { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans };
   }
 
-  // 3) A/B/C/D 키 형태
+  // 3) {stem, A/B/C/D}
   if (raw.stem && (raw.A || raw.B || raw.C || raw.D)) {
     const keys = ['A','B','C','D'] as const;
-    const normChoices: Choice[] = keys
-      .filter(k => raw[k] != null)
-      .map((k) => ({ key: k, text: String(raw[k]) }));
+    const normChoices: Choice[] = keys.filter(k => raw[k] != null).map((k) => ({ key: k, text: String(raw[k]) }));
     const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
     if (!ans) return null;
     return { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans };
@@ -70,29 +63,23 @@ function normalizeQuestion(raw: any, i: number): Question | null {
   return null;
 }
 
-function usePackParam() {
-  const qs = new URLSearchParams(location.search);
-  return qs.get('pack') || 'sample';
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 컴포넌트
-// ──────────────────────────────────────────────────────────────────────────────
 export default function Play() {
   const pack = usePackParam();
   const nav = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState<string>('로딩 중…');
+  const [msg, setMsg] = useState('로딩 중…');
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const q = questions[idx] || null;
 
-  const [proof, setProof] = useState<any | null>(null); // Proof 타입은 동적 import로 주입
-  const startedRef = useRef(false); // StrictMode 중복 방지
+  const turnsRef = useRef<Turn[]>([]);
+  const startedRef = useRef(false);
+  const startAtRef = useRef<number>(0);
+  const proofRef = useRef<any>(null); // 동적 import 대응
 
-  // 1) QR 토큰 로그인 → 런 발급 → Proof 초기화
+  // 1) QR 토큰 로그인 → 런 발급 → Proof 로깅 준비
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
@@ -101,24 +88,25 @@ export default function Play() {
       try {
         const qs = new URLSearchParams(location.search);
         const t = qs.get('t');
-
         if (t && typeof (api as any).guestLogin === 'function') {
           await (api as any).guestLogin(t);
         }
 
-        // 런 토큰 보장(ensure→new→enter 순으로 시도)
         const ensure = (api as any).ensureRunToken || (api as any).newRunToken || (api as any).enterDungeon;
-        if (typeof ensure === 'function') {
-          await ensure();
-        }
+        if (typeof ensure === 'function') await ensure();
 
-        // Proof 동적 import (Proof | default 모두 수용)
-        const mod: any = await import('../shared/lib/proof');
-        const ProofCtor = mod?.Proof ?? mod?.default;
-        const runId = localStorage.getItem('qd:runToken');
-        const p = runId ? new ProofCtor(runId) : new ProofCtor();
-        await p.log?.({ type: 'session_start', pack });
-        setProof(p);
+        // Proof (있으면 사용, 없어도 진행)
+        try {
+          const mod: any = await import('../shared/lib/proof');
+          const ProofCtor = mod?.Proof ?? mod?.default;
+          const runId = localStorage.getItem('qd:runToken');
+          proofRef.current = runId ? new ProofCtor(runId) : new ProofCtor();
+          await proofRef.current?.log?.({ type: 'session_start', pack });
+        } catch {}
+
+        // 새 세션 초기화
+        turnsRef.current = [];
+        startAtRef.current = Date.now();
 
         setMsg('준비 완료!');
       } catch (e: any) {
@@ -139,22 +127,16 @@ export default function Play() {
         const url = new URL(`packs/${pack}.json`, location.origin).toString();
         const res = await fetch(url, { cache: 'no-store', signal: ac.signal });
         let rawList: any = [];
-        if (res.ok) {
-          rawList = await res.json();
-        } else {
-          // 폴백: sample 1문항
-          rawList = [
-            { id: 'sample-1', stem: '샘플 문항입니다. A를 선택하세요.', choices: ['A', 'B', 'C', 'D'], answerKey: 'A' }
-          ];
-        }
+        if (res.ok) rawList = await res.json();
+        else rawList = [{ id: 'sample-1', stem: '샘플 문항입니다. A를 선택하세요.', choices: ['A','B','C','D'], answerKey: 'A' }];
 
         const arr = Array.isArray(rawList)
           ? rawList
           : (rawList?.questions ?? rawList?.items ?? rawList?.data?.questions ?? []);
 
         const clean: Question[] = [];
-        const invalids: Array<{ i: number; raw: any }> = [];
-        arr.forEach((raw: any, i: number) => {
+        const invalids: Array<{ i:number; raw:any }> = [];
+        arr.forEach((raw:any, i:number) => {
           const nq = normalizeQuestion(raw, i);
           if (nq && nq.stem && Array.isArray(nq.choices) && nq.choices.length >= 2) clean.push(nq);
           else invalids.push({ i, raw });
@@ -162,7 +144,7 @@ export default function Play() {
 
         setQuestions(clean);
         setIdx(0);
-        if (invalids.length) console.warn(`[PACK:${pack}] 무시된 비정상 문항 ${invalids.length}개`, invalids.slice(0, 5));
+        if (invalids.length) console.warn(`[PACK:${pack}] 무시된 비정상 문항 ${invalids.length}개`, invalids.slice(0,5));
       } catch (e) {
         if (!ac.signal.aborted) {
           console.warn('pack load failed', e);
@@ -176,20 +158,23 @@ export default function Play() {
     return () => ac.abort();
   }, [pack]);
 
-  // 3) 문항 표출 로그
+  // 3) 문항 표출 로그(선택)
   useEffect(() => {
-    if (q && proof?.log) {
-      proof.log({ type: 'q_shown', id: q.id, idx }).catch?.(() => {});
+    if (q && proofRef.current?.log) {
+      proofRef.current.log({ type: 'q_shown', id: q.id, idx }).catch?.(() => {});
     }
-  }, [q, idx, proof]);
+  }, [q, idx]);
 
   // 4) 답안 처리
   async function onAnswer(key: Choice['key']) {
     if (!q) return;
     const correct = q.answerKey === key;
-    try {
-      await proof?.log?.({ type: 'answer', id: q.id, pick: key, correct });
-    } catch {}
+
+    // Proof 로그는 실패해도 무시
+    try { await proofRef.current?.log?.({ type: 'answer', id: q.id, pick: key, correct }); } catch {}
+
+    // 로컬 턴 누적
+    turnsRef.current.push({ id: q.id, pick: key, correct });
 
     const isLast = idx >= (questions.length - 1);
     if (!isLast) {
@@ -198,13 +183,25 @@ export default function Play() {
       return;
     }
 
-    // 마지막 문항 → 요약 후 결과 페이지 이동
+    // 마지막: 결과 객체(배열 아님!)를 직접 저장 → Result.tsx가 곧바로 읽음
     setMsg(correct ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…');
     try {
-      const summary = await proof?.summary?.(correct as any);
-      if (summary) localStorage.setItem('qd:lastResult', JSON.stringify(summary));
-    } catch (e) {
-      console.warn('proof.summary failed', e);
+      const turns = turnsRef.current;
+      const total = Math.max(1, questions.length);
+      const score = turns.filter(t => t.correct).length;
+      const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
+      const cleared = score >= Math.ceil(total * 0.6); // 통과 기준(60%) — 필요 시 조정
+
+      const summary = { cleared, turns: total, durationSec };
+      localStorage.setItem('qd:lastResult', JSON.stringify(summary));
+      localStorage.setItem('qd:lastPack', pack);
+      // (선택) 디버깅용으로 턴 배열도 남김
+      localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
+
+      // Proof summary는 부가적으로만 시도(형태가 달라도 무시)
+      try {
+        await proofRef.current?.summary?.(correct as any);
+      } catch {}
     } finally {
       nav('/result');
     }
@@ -218,11 +215,9 @@ export default function Play() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [q, proof]);
+  }, [q]);
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // 렌더
-  // ──────────────────────────────────────────────────────────────────────────
+  // ───────────── 렌더 ─────────────
   if (loading) return <div className="p-6">로딩…</div>;
   if (!q) return <div className="p-6">문항이 없습니다. <span className="text-rose-400 ml-2">{msg}</span></div>;
 
