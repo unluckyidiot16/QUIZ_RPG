@@ -73,23 +73,48 @@ export default function Wardrobe(){
     }, [allItems, activeSlot, q, rarityFilter]);
 
   const [busy, setBusy] = useState(false);
-  async function equip(slot: Slot, itemId?: string) {
-    if (!invState) return;
-    if (busy) return;
-    setBusy(true);
-    const nextEquip = { ...(invState.equipped || {}) } as Record<string, string | undefined>;
-    if (itemId) nextEquip[slot] = itemId;         // 착용
-    else delete nextEquip[slot];                  // 해제 → 기본으로 폴백
-    const next = await inv.apply({ equip: nextEquip as any });
-    setInvState(next);
-    notifyInventoryChanged();                     // 헤더 갱신 신호
-    setBusy(false);
-  }
+   async function equip(slot: Slot, itemId?: string) {
+       if (!invState) return;
+       // 해제를 "기본 아이템 장착"으로 처리 → 머지 저장에서도 확실히 반영
+         const nextEquip = { ...(invState.equipped || {}) } as Record<string, string>;
+         if (itemId) {
+           nextEquip[slot] = itemId;
+         } else {
+           const def = pickDefaultId(slot, catalog);
+           if (def) nextEquip[slot] = def; else delete nextEquip[slot];
+         }
+       await inv.apply({ equip: nextEquip as any });
+       // 적용 직후 최신 상태로 리로드(캐시/지연 대비)
+        const loaded = await inv.load();
+       setInvState(loaded);
+       notifyInventoryChanged(); // 헤더 갱신
+     }
 
   const equippedId = equipped[activeSlot];
 
+  function pickDefaultId(slot: Slot, cat: Record<string, WearableItem>): string | undefined {
+    const items = Object.values(cat).filter(i => i.slot === slot);
+    const score = (it: WearableItem) => {
+      const s = `${it.id} ${it.name}`.toLowerCase();
+      // 기본 후보 우선
+      if (s.includes('blank') || s.includes('basic') || s.includes('regular') || s.includes('default')) return 0;
+      return 1;
+    };
+    return items.sort((a,b)=>score(a)-score(b))[0]?.id;
+  }
+
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
+      {/* 상단 바 */}
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">옷장</h2>
+            <div className="flex gap-2">
+              <a href="/" className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700">
+                메인으로
+              </a>
+            </div>
+          </div>
       {/* 미리보기 */}
       <div className="flex items-center gap-6">
         <AvatarRenderer layers={layers} size={220} corsMode="none" />
