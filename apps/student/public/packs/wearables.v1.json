@@ -1,0 +1,26 @@
+{
+  "body.blank1": {
+    "id": "body.blank1",
+    "name": "기본 피부",
+    "slot": "Body",
+    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer0_Body/Layer0_Body_Blank1.png"
+  },
+  "face.regular1": {
+    "id": "face.regular1",
+    "name": "기본 얼굴",
+    "slot": "Face",
+    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer1_Face/Layer1_Face_Regular1.png"
+  },
+  "bodysuit.blank1": {
+    "id": "bodysuit.blank1",
+    "name": "기본 몸통",
+    "slot": "BodySuit",
+    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer2_BodySuit/Layer2_BodySuit_Blank1"
+  },
+  "pants.blank1": {
+    "id": "pants.blank1",
+    "name": "기본 바지",
+    "slot": "Pants",
+    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer3_Pants/Layer3_Pants_Blank1"
+  }
+}
