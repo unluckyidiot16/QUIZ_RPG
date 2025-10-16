@@ -5,7 +5,7 @@ import { InventoryGateway } from './inventory.port';
 
 export class ClientAwarder implements GachaAwarder {
   constructor(private inv: InventoryGateway) {}
-  async open(pool:GachaPoolDef, count:number, opts?:{idempotencyKey?:string}): Promise<GachaResult> {
+  async open(pool: GachaPoolDef, count: number, opts?: { idempotencyKey?: string }): Promise<GachaResult> {
     const inv = await this.inv.load();
     const costCoin = pool.cost.coin ?? 0;
     const ticketId = pool.cost.ticketId;
