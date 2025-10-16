@@ -5,6 +5,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+const RSET = new Set(['common','uncommon','rare','epic','legendary','mythic']);
+const normRarity = v => {
+  const s = String(v ?? '').trim().toLowerCase();
+  return RSET.has(s) ? s : undefined;
+};
 const SHEET_ID   = process.env.SHEET_ID;
 const SHEET_NAME = process.env.SHEET_NAME || '';
 const ASSETS_ROOT = (process.env.ASSETS_ROOT || 'https://unluckyidiot16.github.io/assets-common/QuizRpg/').replace(/\/+$/,'') + '/';
@@ -92,9 +97,12 @@ async function main(){
     const aRows   = toNum(get(r,'atlasrows'));
     const aFrames = toNum(get(r,'atlasframes'));
     const aFps    = toNum(get(r,'atlasfps'));
+    const rarity  = normRarity(get(r,'rarity'));
 
+    
     const item = {
       id, name, slot, src,
+      ...(rarity ? { rarity } : {}),
       ...(opacity != null ? { opacity } : {}),
       ...(scale   != null ? { scale }   : {}),
       ...((ox != null || oy != null) ? { offset: { x: ox || 0, y: oy || 0 } } : {}),

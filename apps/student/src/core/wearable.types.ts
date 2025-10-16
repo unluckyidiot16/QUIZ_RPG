@@ -8,12 +8,15 @@ export const SLOT_Z: Record<Slot, number> = {
   Sleeves:6, Necklace:7, Bag:8, Scarf:9, Bowtie:10, Hair:11, Hat:12,
 };
 
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
+
 export type WearableItem = {
   id: string;              // ex) body.blank1
   name: string;
   slot: Slot;
   src: string;             // 절대/상대 경로(루트와 합쳐 사용)
   // (확장) 렌더 옵션
+  rarity?: Rarity; // 없으면 common 취급
   opacity?: number;
   scale?: number;
   offset?: { x:number; y:number };

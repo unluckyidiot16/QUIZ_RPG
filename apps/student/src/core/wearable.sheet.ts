@@ -5,6 +5,14 @@
 import type { WearableItem } from './wearable.types';
 
 // 시트 컬럼 권장: id, name, slot, path, opacity, scale, offsetX, offsetY, atlasCols, atlasRows, atlasFrames, atlasFps, active
+
+type R = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic';
+const RSET = new Set<R>(['common','uncommon','rare','epic','legendary','mythic']);
+const normRarity = (v:any): R | undefined => {
+  const s = String(v ?? '').trim().toLowerCase();
+  return RSET.has(s as R) ? (s as R) : undefined;
+};
+
 // path는 예: "Layer12_Hat/Hat_Cap_Red1.png" (상대) 또는 절대 URL
 
 const ROOT = (import.meta.env.VITE_ASSETS_ROOT as string)
@@ -70,6 +78,8 @@ export async function fetchWearablesFromSheet(opts: {
     const nameCell = get(r,'name');
     const name = String((nameCell ?? id) || '').trim();
     const slot = String(get(r,'slot') ?? '').trim(); // 'Hat' 등
+    const rarity = normRarity(get(r,'rarity')); // ← 추가
+
     let path = String(get(r,'path') ?? '').trim();   // 절대 or 상대
 
     if (!id || !slot || !path) continue;
@@ -87,7 +97,7 @@ export async function fetchWearablesFromSheet(opts: {
 
     const item: WearableItem = {
       id, name, slot: slot as any, src,
-      opacity, scale,
+      rarity, opacity, scale,
       offset: (offsetX!=null || offsetY!=null) ? { x: offsetX||0, y: offsetY||0 } : undefined,
       atlas: (atlasCols && atlasRows && atlasFrames) ? {
         cols: atlasCols, rows: atlasRows, frames: atlasFrames, fps: atlasFps ?? 6
