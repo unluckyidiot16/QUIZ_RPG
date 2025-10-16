@@ -1,0 +1,62 @@
+name: Wearables Catalog Sync (Sheet → JSON)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even if sheet fetch fails (will still commit if local changes exist)"
+        type: boolean
+        default: false
+  schedule:
+    # 매일 아침 6시(KST=UTC+9 기준, 여기선 UTC 21시)
+    - cron: "0 21 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wearables-catalog
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate JSON from Google Sheet
+        env:
+          SHEET_ID: ${{ secrets.1zwKrUcOJtajPdOu9QKmkYzNniIscTKMnNd4G5gudEhQ }}   # 스프레드시트 ID (필수)
+          SHEET_NAME: ${{ vars.WearableItem }}  # 시트 탭 이름 (없으면 비워두기)
+          ASSETS_ROOT: ${{ vars.https://unluckyidiot16.github.io/assets-common/QuizRpg/ }} 
+          OUT_PATH: apps/student/public/packs/wearables.v1.json
+          FORCE: ${{ github.event.inputs.force || 'false' }}
+        run: |
+          node scripts/sheet_to_wearables.mjs
+
+      - name: Commit & Push (if changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(wearables): update catalog from Google Sheet"
+            git push
+          fi
+
+      # 보호 브랜치라 직접 푸시가 막히면 위 커밋 스텝을 주석 처리하고 아래 PR 스텝을 사용하세요.
+      # - name: Create Pull Request
+      #   uses: peter-evans/create-pull-request@v6
+      #   with:
+      #     commit-message: "chore(wearables): update catalog from Google Sheet"
+      #     branch: auto/wearables
+      #     title: "Wearables: update catalog from Google Sheet"
+      #     body: "Automated sync of wearables catalog."
