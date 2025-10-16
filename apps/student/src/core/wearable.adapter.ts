@@ -1,47 +1,75 @@
 // apps/student/src/core/wearable.adapter.ts
-import type { Equipped, Slot, WearableItem } from './wearable.types';
-import { SLOT_Z } from './wearable.types';
-// ❗️named import 제거 → namespace import (없어도 안전)
-import * as Cat from './wearable.catalog';
-import type { Layer } from '../shared/ui/AvatarRenderer';
+// Catalog-agnostic adapter: accepts WearableCatalog | ItemCatalog | Record<string, any>
+// and renders Avatar layers using only cosmetic items.
 
-// 슬롯 고정 순서
+import type {
+  Equipped,
+  Slot,
+  WearableItem,
+  WearableCatalog,
+  ItemCatalog,
+} from './wearable.types';
+import { SLOT_Z, cosmeticsOnly } from './wearable.types';
+import type { Layer } from '../shared/ui/AvatarRenderer';
+// (optional fallback if a static catalog exists; safe even if not exported)
+import * as Cat from './wearable.catalog';
+
+// 고정 슬롯 순서 (겹침 규칙)
 const ORDER: Slot[] = [
   'Body','Face','BodySuit','Pants','Shoes','Clothes',
-  'Sleeves','Necklace','Bag','Scarf','Bowtie','Hair','Hat'
+  'Sleeves','Necklace','Bag','Scarf','Bowtie','Hair','Hat','Weapon'
 ];
 
-// 카탈로그 기본값 (catalog가 내보내지 않으면 빈 객체)
-const DEFAULT_CATALOG: Record<string, WearableItem> =
-  (((Cat as any).WEARABLES as Record<string, WearableItem>) || {});
+// 주어진 카탈로그를 코스메틱 전용으로 정규화
+function normalizeCatalog(
+  catalogAny?: WearableCatalog | ItemCatalog | Record<string, unknown>
+): WearableCatalog {
+  const fromArg = catalogAny ? cosmeticsOnly(catalogAny as any) : undefined;
+  if (fromArg && Object.keys(fromArg).length) return fromArg;
+
+  // (폴백) wearable.catalog.ts 가 WEARABLES 를 내보내는 경우만 사용
+  const maybeStatic = (Cat as any)?.WEARABLES;
+  if (maybeStatic) {
+    const filtered = cosmeticsOnly(maybeStatic);
+    if (Object.keys(filtered).length) return filtered;
+  }
+  return {};
+}
 
 // 슬롯별 기본 아이템 자동 산출
-function computeDefaults(catalog: Record<string, WearableItem>): Partial<Record<Slot,string>> {
+function computeDefaults(catalog: WearableCatalog): Partial<Record<Slot,string>> {
   const defaults: Partial<Record<Slot,string>> = {};
   const items = Object.values(catalog);
+
   const score = (it: WearableItem) => {
     const s = `${it.id} ${it.name}`.toLowerCase();
-    return (s.includes('blank') || s.includes('basic') || s.includes('regular') || s.includes('default')) ? 0 : 1;
+    // 'blank/basic/regular/default' 를 기본 후보로 우선
+    if (s.includes('blank') || s.includes('basic') || s.includes('regular') || s.includes('default')) return 0;
+    return 1;
   };
+
   for (const it of items) {
     const slot = it.slot as Slot;
     const curId = defaults[slot];
     if (!curId) { defaults[slot] = it.id; continue; }
     const cur = catalog[curId];
-    if (score(it) < score(cur)) defaults[slot] = it.id;
+    if (cur && score(it) < score(cur)) defaults[slot] = it.id;
   }
   return defaults;
 }
 
 /**
- * Wardrobe의 equipped 상태를 AvatarRenderer layers로 변환
- * - catalog 주입: 시트 로딩을 쓰면 loadWearablesCatalog() 결과를 넘겨주세요.
- * - catalog 생략 시: 정적 카탈로그(내보냈다면 사용), 없으면 빈 객체.
+ * equippedToLayers
+ * - equipped: 현재 장착 상태 (id 매핑)
+ * - catalogAny: WearableCatalog | ItemCatalog | Record<string,unknown>
+ *   전달 시 AnyItem 카탈로그여도 코스메틱만 추출하여 사용
+ * - 반환: AvatarRenderer용 layers
  */
 export function equippedToLayers(
   equipped: Equipped,
-  catalog: Record<string, WearableItem> = DEFAULT_CATALOG
+  catalogAny?: WearableCatalog | ItemCatalog | Record<string, unknown>
 ): Layer[] {
+  const catalog = normalizeCatalog(catalogAny);
   const defaults = computeDefaults(catalog);
   const layers: Layer[] = [];
 
