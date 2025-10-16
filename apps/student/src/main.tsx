@@ -4,10 +4,10 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './index.css';
 import './sw-register';
-import Main from './views/Main';
-import Lobby from './views/Lobby';
-import Play from './views/Play';
-import Result from './views/Result';
+import Main from './pages/Main';
+import Lobby from './pages/Lobby';
+import Play from './pages/Play';
+import Result from './pages/Result';
 
 const router = createBrowserRouter([
   { path: '/', element: <Main/> },
