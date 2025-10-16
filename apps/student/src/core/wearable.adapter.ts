@@ -1,26 +1,28 @@
 // apps/student/src/core/wearable.adapter.ts
 import type { Equipped, Slot, WearableItem } from './wearable.types';
 import { SLOT_Z } from './wearable.types';
-import { WEARABLES } from './wearable.catalog'; // 정적 카탈로그가 있으면 사용. (시트 로더 쓰면 아래 사용법 참고)
+// ❗️named import 제거 → namespace import (없어도 안전)
+import * as Cat from './wearable.catalog';
 import type { Layer } from '../shared/ui/AvatarRenderer';
 
-// 슬롯 고정 순서 (겹침 규칙)
+// 슬롯 고정 순서
 const ORDER: Slot[] = [
   'Body','Face','BodySuit','Pants','Shoes','Clothes',
   'Sleeves','Necklace','Bag','Scarf','Bowtie','Hair','Hat'
 ];
 
-// 카탈로그에서 슬롯별 기본 아이템 자동 산출
+// 카탈로그 기본값 (catalog가 내보내지 않으면 빈 객체)
+const DEFAULT_CATALOG: Record<string, WearableItem> =
+  (((Cat as any).WEARABLES as Record<string, WearableItem>) || {});
+
+// 슬롯별 기본 아이템 자동 산출
 function computeDefaults(catalog: Record<string, WearableItem>): Partial<Record<Slot,string>> {
   const defaults: Partial<Record<Slot,string>> = {};
   const items = Object.values(catalog);
-  // 우선순위: id/name에 blank|basic|regular|default 가 있으면 가중치 높음
   const score = (it: WearableItem) => {
     const s = `${it.id} ${it.name}`.toLowerCase();
-    if (s.includes('blank') || s.includes('basic') || s.includes('regular') || s.includes('default')) return 0;
-    return 1;
+    return (s.includes('blank') || s.includes('basic') || s.includes('regular') || s.includes('default')) ? 0 : 1;
   };
-
   for (const it of items) {
     const slot = it.slot as Slot;
     const curId = defaults[slot];
@@ -32,13 +34,13 @@ function computeDefaults(catalog: Record<string, WearableItem>): Partial<Record<
 }
 
 /**
- * equipped 상태와 카탈로그를 받아 AvatarRenderer용 layers로 변환
- * - catalog 파라미터를 생략하면 WEARABLES(정적)를 사용 (기존 코드와 호환)
- * - 시트 로딩을 쓰는 경우 loadWearablesCatalog()로 받은 객체를 catalog에 넣어 호출
+ * Wardrobe의 equipped 상태를 AvatarRenderer layers로 변환
+ * - catalog 주입: 시트 로딩을 쓰면 loadWearablesCatalog() 결과를 넘겨주세요.
+ * - catalog 생략 시: 정적 카탈로그(내보냈다면 사용), 없으면 빈 객체.
  */
 export function equippedToLayers(
   equipped: Equipped,
-  catalog: Record<string, WearableItem> = WEARABLES
+  catalog: Record<string, WearableItem> = DEFAULT_CATALOG
 ): Layer[] {
   const defaults = computeDefaults(catalog);
   const layers: Layer[] = [];

@@ -1,27 +1,43 @@
+// apps/student/src/pages/Wardrobe.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { makeServices } from '../core/service.locator';
 import type { InventoryState } from '../core/items';
-import { WEARABLES } from '../core/wearable.catalog';
-import type { Slot } from '../core/wearable.types';
+import type { Slot, WearableItem } from '../core/wearable.types';
+import { loadWearablesCatalog } from '../core/wearable.catalog';
 import { equippedToLayers } from '../core/wearable.adapter';
 import { AvatarRenderer } from '../shared/ui/AvatarRenderer';
 
 export default function Wardrobe(){
   const { inv } = useMemo(() => makeServices(), []);
-  const [s, setS] = useState<InventoryState|null>(null);
-  useEffect(()=>{ inv.load().then(setS); }, []);
-  if (!s) return <div className="p-6">로딩…</div>;
+  const [invState, setInvState] = useState<InventoryState|null>(null);
+  const [catalog, setCatalog] = useState<Record<string, WearableItem>>({});
 
-  // 예시: 모자/헤어만 보여주기 (전체 12개는 UI 탭으로 나눠도 좋아요)
-  const hats = Object.values(WEARABLES).filter(w => w.slot === 'Hat');
-  const hair = Object.values(WEARABLES).filter(w => w.slot === 'Hair');
+  useEffect(() => {
+    (async () => {
+      const [s, cat] = await Promise.all([
+        inv.load(),
+        loadWearablesCatalog(),
+      ]);
+      setInvState(s);
+      setCatalog(cat);
+    })();
+  }, [inv]);
+
+  if (!invState) return <div className="p-6">로딩…</div>;
+
+  const equipped = (invState.equipped || {}) as any;
+  const layers = equippedToLayers(equipped, catalog);
+
+  const itemsBySlot = (slot: Slot) =>
+    Object.values(catalog).filter(i => i.slot === slot);
 
   async function equip(slot: Slot, itemId: string){
-    const next = await inv.apply({ equip: { ...(s.equipped||{}), [slot]: itemId } as any });
-    setS(next);
+    const next = await inv.apply({ equip: { ...(invState.equipped||{}), [slot]: itemId } as any });
+    setInvState(next);
   }
 
-  const layers = equippedToLayers(s.equipped as any);
+  const hair = itemsBySlot('Hair');
+  const hat  = itemsBySlot('Hat');
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
@@ -43,8 +59,8 @@ export default function Wardrobe(){
       <section>
         <h3 className="font-semibold mb-2">모자</h3>
         <div className="grid grid-cols-2 gap-2">
-          {hats.length === 0 && <div className="opacity-70">아이템 없음</div>}
-          {hats.map(i=>(
+          {hat.length === 0 && <div className="opacity-70">아이템 없음</div>}
+          {hat.map(i=>(
             <button key={i.id} className="px-3 py-2 bg-slate-700 rounded"
                     onClick={()=>equip('Hat', i.id)}>
               {i.name}
