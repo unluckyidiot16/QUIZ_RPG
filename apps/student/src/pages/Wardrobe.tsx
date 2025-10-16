@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { makeServices } from '../core/service.locator';
 import type { InventoryState } from '../core/items';
-import type { Slot, WearableItem } from '../core/wearable.types';
+import type { Slot, WearableItem, Rarity } from '../core/wearable.types';
 import { loadWearablesCatalog } from '../core/wearable.catalog';
 import { equippedToLayers } from '../core/wearable.adapter';
 import { AvatarRenderer } from '../shared/ui/AvatarRenderer';
 import { notifyInventoryChanged } from '../core/inv.bus';
-import type { Rarity } from '../core/wearable.types';
 
 
 const SLOTS: Slot[] = [
@@ -48,31 +47,45 @@ export default function Wardrobe(){
       const [s, cat] = await Promise.all([inv.load(), loadWearablesCatalog()]);
       setInvState(s);
       setCatalog(cat);
+      const firstSlotWithItems = SLOTS.find(sl => Object.values(cat).some(i => i.slot === sl));
+      if (firstSlotWithItems) setActiveSlot(firstSlotWithItems);
     })();
   }, [inv]);
 
   const equipped = (invState?.equipped || {}) as Partial<Record<Slot, string>>;
   const layers = useMemo(() => equippedToLayers(equipped as any, catalog), [equipped, catalog]);
   const [rarityFilter, setRarityFilter] = useState<'all'|Rarity>('all');
-  
-  
-  const itemsBySlot = (slot: Slot) =>
-    Object.values(catalog)
-      .filter(i => i.slot === slot)
-      .filter(i => (q ? `${i.name} ${i.id}`.toLowerCase().includes(q.toLowerCase()) : true))
-      .filter(i => rarityFilter === 'all' ? true : asRarity(i.rarity) === rarityFilter);
 
+
+  const allItems = useMemo(() => Object.values(catalog), [catalog]);
+  const countsBySlot = useMemo(() => {
+    const m = new Map<Slot, number>();
+    for (const sl of SLOTS) m.set(sl, 0);
+    for (const it of allItems) m.set(it.slot as Slot, (m.get(it.slot as Slot) || 0) + 1);
+    return m;
+    }, [allItems]);
+  const list = useMemo(() => {
+    const rq = q.trim().toLowerCase();
+    return allItems
+      .filter(i => i.slot === activeSlot)
+      .filter(i => (rq ? `${i.name} ${i.id}`.toLowerCase().includes(rq) : true))
+      .filter(i => rarityFilter === 'all' ? true : asRarity(i.rarity) === rarityFilter);
+    }, [allItems, activeSlot, q, rarityFilter]);
+
+  const [busy, setBusy] = useState(false);
   async function equip(slot: Slot, itemId?: string) {
     if (!invState) return;
+    if (busy) return;
+    setBusy(true);
     const nextEquip = { ...(invState.equipped || {}) } as Record<string, string | undefined>;
     if (itemId) nextEquip[slot] = itemId;         // 착용
     else delete nextEquip[slot];                  // 해제 → 기본으로 폴백
     const next = await inv.apply({ equip: nextEquip as any });
     setInvState(next);
     notifyInventoryChanged();                     // 헤더 갱신 신호
+    setBusy(false);
   }
 
-  const list = itemsBySlot(activeSlot);
   const equippedId = equipped[activeSlot];
 
   return (
@@ -125,7 +138,7 @@ export default function Wardrobe(){
       {/* 슬롯 탭 */}
       <div className="flex flex-wrap gap-2">
         {SLOTS.map((slot) => {
-          const count = Object.values(catalog).filter(i => i.slot === slot).length;
+          const count = countsBySlot.get(slot) || 0;
           const isActive = slot === activeSlot;
           return (
             <button
