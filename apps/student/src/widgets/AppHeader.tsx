@@ -1,32 +1,39 @@
-// src/widgets/AppHeader.tsx
+import React, { useEffect, useMemo, useState } from 'react';
+import { AvatarRenderer } from '../shared/ui/AvatarRenderer';
+import { makeServices } from '../core/service.locator';
+import type { Equipped, WearableItem } from '../core/wearable.types';
 import { loadWearablesCatalog } from '../core/wearable.catalog';
 import { equippedToLayers } from '../core/wearable.adapter';
-import type { Equipped } from '../core/wearable.types';
-import { makeServices } from '../core/service.locator';
-import { useEffect, useMemo, useState } from 'react';
-import { AvatarRenderer } from '../shared/ui/AvatarRenderer';
 
 export default function AppHeader() {
   const { inv } = useMemo(() => makeServices(), []);
   const [equipped, setEquipped] = useState<Equipped>({});
-  const [layers, setLayers] = useState<any[]>([]);
+  const [catalog, setCatalog] = useState<Record<string, WearableItem>>({});
+  const [ready, setReady] = useState(false);
 
-  useEffect(() => { inv.load().then(s => setEquipped(s.equipped as any)); }, [inv]);
   useEffect(() => {
     (async () => {
-      const catalog = await loadWearablesCatalog();
-      // equippedToLayers가 catalog를 사용하도록 오버로드 하거나, 내부에서 import하는 버전이라면 그대로 사용.
-      // 간단히: adapter가 catalog를 참조하도록 살짝 수정해도 OK.
-      const { equippedToLayersWith } = await import('../core/wearable.adapter.with'); // 아래 추가 예시
-      setLayers(equippedToLayersWith(equipped, catalog));
+      const [s, cat] = await Promise.all([
+        inv.load(),            // 착용 정보
+        loadWearablesCatalog() // 시트→JSON 카탈로그
+      ]);
+      setEquipped((s.equipped || {}) as Equipped);
+      setCatalog(cat);
+      setReady(true);
     })();
-  }, [equipped]);
+  }, [inv]);
 
+  const layers = useMemo(() => equippedToLayers(equipped, catalog), [equipped, catalog]);
 
   return (
     <header className="w-full px-4 py-3 flex items-center gap-3 bg-slate-900/60">
       <div className="shrink-0">
-        <AvatarRenderer layers={layers} size={120} corsMode="none" />
+        {/* 카탈로그가 로드되면 즉시 렌더; 로딩 중엔 자리만 잡아둠 */}
+        {ready ? (
+          <AvatarRenderer layers={layers} size={120} corsMode="none" />
+        ) : (
+          <div style={{ width: 120, height: 120 }} />
+        )}
       </div>
       <div className="flex-1">
         <div className="text-lg font-semibold">오늘의 던전</div>
