@@ -140,7 +140,7 @@ export default function Play() {
       <div className="p-4 rounded bg-slate-800">
         <div className="font-medium whitespace-pre-wrap">{q.stem}</div>
         <div className="grid gap-2 mt-3">
-          {q.choices.map(c => (
+          {(q?.choices ?? []).map(c => (
             <button
               key={c.key}
               className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
@@ -149,6 +149,11 @@ export default function Play() {
               <span className="font-bold mr-2">{c.key}.</span>{c.text}
             </button>
           ))}
+          {(!q?.choices || q.choices.length === 0) && (
+            <div className="text-sm text-rose-300">
+              이 문항의 선택지 형식이 올바르지 않습니다.
+            </div>
+          )}
         </div>
       </div>
 
