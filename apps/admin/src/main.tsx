@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Login from './pages/Login';
 import Runs from './pages/Runs';
 import { sb } from './sb';
+import AdminTokens from './pages/AdminTokens';
 
 function Gate() {
   const [ready, setReady] = useState(false);
@@ -17,5 +18,5 @@ function Gate() {
   return authed ? <Runs/> : <Login/>;
 }
 
-const router = createBrowserRouter([{ path: '/', element: <Gate/> }]);
+const router = createBrowserRouter([{ path: '/', element: <Gate/> },{ path: '/tokens', element: <AdminTokens/> }]);
 createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);

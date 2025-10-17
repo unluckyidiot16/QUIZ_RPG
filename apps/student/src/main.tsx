@@ -13,6 +13,7 @@ import Inventory from './pages/Inventory';
 import Wardrobe from './pages/Wardrobe';
 import Codex from './pages/Codex';
 import { bootstrapFirstRun } from './core/bootstrap';
+import TokenGatePage from './pages/TokenGatePage';
 
 const router = createBrowserRouter([
   { path: '/', element: <Main/> },
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
   { path: '/inventory', element: <Inventory/> },
   { path: '/wardrobe', element: <Wardrobe/> },
   { path: '/codex', element: <Codex/> },
+  { path: '/token/:id', element: <TokenGatePage/> },
 ]);
 
 bootstrapFirstRun().catch(()=>{}); // 렌더를 막진 않고 백그라운드 시드
