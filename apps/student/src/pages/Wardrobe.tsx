@@ -36,6 +36,28 @@ const SLOT_LABEL: Record<Slot,string> = {
   Bag:"가방", Body:"바디", Face:"페이스",
 };
 
+const Z_BY_SLOT: Record<Slot, number> = {
+  Body: 0,
+  BodySuit: 5,
+  Pants: 10,
+  Shoes: 15,
+  Clothes: 20,
+  Sleeves: 25,
+  Bag: 30,
+  Necklace: 40,
+  Scarf: 45,
+  Bowtie: 50,
+  Face: 55,
+  Hair: 60,
+  Hat: 70,
+};
+
+function getZ(slot: Slot, item?: any): number {
+  const meta = item?.layer ?? item?.z;          // 시트/JSON에 layer(z) 있으면 우선
+  if (Number.isFinite(meta)) return Number(meta);
+  return Z_BY_SLOT[slot] ?? 0;
+}
+
 /** 희귀도 정규화/스타일 */
 function asRarity(r?: string): Rarity {
   const v = (r ?? "common").toLowerCase();
@@ -225,15 +247,23 @@ export default function Wardrobe() {
 
   /** 프리뷰 레이어: 정규 카탈로그 사용(원본 src 경로 유지) */
   const layers = useMemo(() => {
-    const items: { id:string; slot:Slot; src?:string; name?:string }[] = [];
-    for (const slot of SLOTS) {
-      const id = equipped[slot];
-      if (!id) continue;
-      const it = getItemByAnyId(id);
-      items.push({ id, slot, src: pickSrc(it), name: it?.name ?? id });
-    }
-    return items;
-  }, [equipped, catalogByIdL]);
+    const items: { id:string; slot:Slot; src?:string; name?:string; z:number }[] = [];
+        for (const slot of SLOTS) {
+            const id = equipped[slot];
+            if (!id) continue;
+            const it = getItemByAnyId(id);
+            items.push({ 
+                id,
+                slot,
+                src: pickSrc(it),
+                name: it?.name ?? id,
+                z: getZ(slot, it),
+              });
+          }
+        // 낮은 z가 먼저(아래), 높은 z가 나중(위)
+          items.sort((a,b) => a.z - b.z);
+        return items;
+      }, [equipped, catalogByIdL]);
 
   /** 실제 보유한 아이템만(allItems) */
   const allItems = useMemo(
@@ -294,7 +324,11 @@ export default function Wardrobe() {
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="aspect-square rounded-xl bg-slate-900/50 border border-white/10 relative overflow-hidden">
           {layers.map((L) => (
-            <div key={`${L.slot}:${L.id}`} className="absolute inset-0 flex items-center justify-center">
+               <div
+                 key={`${L.slot}:${L.id}`}
+                 className="absolute inset-0 flex items-center justify-center"
+                 style={{ zIndex: L.z }}
+               >
               {L.src ? (
                 <img
                   src={normalizeSrc(L.src)}
