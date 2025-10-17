@@ -72,5 +72,5 @@ class SupabaseAccessService {
     }
 }
 // ---- DI 스위치 ----
-const MODE = import.meta.env?.VITE_ACCESS_MODE ?? (process.env.NEXT_PUBLIC_ACCESS_MODE ?? 'mock');
+const MODE = import.meta.env?.VITE_ACCESS_MODE ?? 'mock';
 export const accessService = MODE === 'supabase' ? new SupabaseAccessService() : new MockAccessService();

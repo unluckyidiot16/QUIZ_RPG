@@ -1,3 +1,4 @@
+export declare function sha256(input: string | ArrayBuffer | Uint8Array): Promise<Uint8Array<ArrayBuffer>>;
 export declare class Proof {
     private h;
     turns: number;

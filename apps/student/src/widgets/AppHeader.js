@@ -98,5 +98,5 @@ export default function AppHeader() {
         if (srcs.length)
             preloadImages(srcs);
     }, [hasEquip, layers]);
-    return (_jsxs("header", { className: "w-full px-4 py-3 flex items-center gap-3 bg-slate-900/60", children: [_jsx("div", { className: "shrink-0", children: ready && hasEquip ? (_jsx(AvatarRenderer, { layers: layers, size: 120, corsMode: "none" })) : (_jsx("div", { style: { width: 120, height: 120 } })) }), _jsxs("div", { className: "flex-1", children: [_jsx("div", { className: "text-lg font-semibold", children: "\uC624\uB298\uC758 \uB358\uC804" }), _jsx("div", { className: "text-sm opacity-70", children: "\uB0B4 \uC544\uBC14\uD0C0" })] })] }));
+    return (_jsxs("header", { className: "w-full px-4 py-3 flex items-center gap-3 bg-slate-900/60", children: [_jsx("div", { className: "shrink-0", children: ready && hasEquip ? (_jsx(AvatarRenderer, { layers: layers.map(l => ({ ...l, src: l.src ?? '' })), size: 120, corsMode: "none" })) : (_jsx("div", { style: { width: 120, height: 120 } })) }), _jsxs("div", { className: "flex-1", children: [_jsx("div", { className: "text-lg font-semibold", children: "\uC624\uB298\uC758 \uB358\uC804" }), _jsx("div", { className: "text-sm opacity-70", children: "\uB0B4 \uC544\uBC14\uD0C0" })] })] }));
 }

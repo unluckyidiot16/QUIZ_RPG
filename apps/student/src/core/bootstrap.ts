@@ -102,7 +102,7 @@ export async function bootstrapFirstRun(): Promise<void> {
 
   // 3) 적용: 장착 + 보유 추가
   await inv.apply({
-    equip: nextEquip,
+    equip: (nextEquip as any),
     cosmeticsAdd: Array.from(ownedSet),
     reason: "seed:first-run",
   });

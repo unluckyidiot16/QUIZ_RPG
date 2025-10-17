@@ -1,7 +1,14 @@
 // 이벤트 체인: H0=nonce, Hi=sha256(Hi-1 || JSON(ev))
 const enc = new TextEncoder();
-async function sha256(u8) {
-    const d = await crypto.subtle.digest('SHA-256', u8.buffer);
+export async function sha256(input) {
+    const u8 = typeof input === 'string'
+        ? enc.encode(input)
+        : input instanceof Uint8Array
+            ? input
+            : new Uint8Array(input); // ArrayBuffer → Uint8Array
+    // ✅ 새 Uint8Array로 복사 → 이 버퍼는 ArrayBuffer 보장(SharedArrayBuffer 아님)
+    const ab = u8.slice().buffer;
+    const d = await crypto.subtle.digest('SHA-256', ab);
     return new Uint8Array(d);
 }
 function concat(a, b) {
@@ -10,8 +17,12 @@ function concat(a, b) {
     u.set(b, a.length);
     return u;
 }
-function b64(u8) { let s = ''; for (const b of u8)
-    s += String.fromCharCode(b); return btoa(s); }
+function b64(u8) {
+    let s = '';
+    for (const b of u8)
+        s += String.fromCharCode(b);
+    return btoa(s);
+}
 export class Proof {
     constructor() {
         this.turns = 0;
