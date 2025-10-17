@@ -7,27 +7,54 @@ function readTokenId(): string | null {
   return q;
 }
 
+function firstRow<T = any>(data: any): T | null {
+  if (!data) return null;
+  return Array.isArray(data) ? (data[0] ?? null) : data;
+}
+
 export async function bootstrapFromToken() {
   try {
     const tokenId = readTokenId();
-    if (!tokenId) return { consumed:false, gate:'ok' as const, message:'', userId:null as string|null };
+    if (!tokenId) {
+      return { consumed:false, gate:'ok' as const, message:'', userId:null as string|null };
+    }
 
     const fp = `${navigator.userAgent}|${screen.width}x${screen.height}`;
 
+    // 1) 토큰 소비
     const consume = await sb.rpc('consume_qr_token', { p_token_id: tokenId, p_device_fp: fp });
     if (consume.error) {
-      return { consumed:false, gate:'blocked' as const, message: consume.error.message || '토큰 소비 실패', userId:null };
+      return {
+        consumed:false,
+        gate:'blocked' as const,
+        message: consume.error.message || '토큰 소비 실패',
+        userId:null
+      };
     }
-    const userId = (consume.data as { ok:boolean; user_id:string }).user_id;
+    const cRow = firstRow<{ ok:boolean; user_id:string }>(consume.data);
+    const userId = cRow?.user_id;
+    if (!userId) {
+      return { consumed:false, gate:'blocked' as const, message:'user_id 응답 없음', userId:null };
+    }
     localStorage.setItem('student_user_id', userId);
 
+    // 2) 게이트 확인
     const gate = await sb.rpc('get_access_gate', {
-      p_user_id: userId, p_user_agent: navigator.userAgent, p_ip: null
+      p_user_id: userId,                       // ⚠️ 꼭 포함되어야 함
+      p_user_agent: navigator.userAgent,
+      p_ip: null
     });
     if (gate.error) {
-      return { consumed:true, gate:'blocked' as const, message: gate.error.message || '접속 확인 실패', userId };
+      return {
+        consumed:true,
+        gate:'blocked' as const,
+        message: gate.error.message || '접속 확인 실패',
+        userId
+      };
     }
-    const { gate: status, message } = gate.data as { gate:'ok'|'blocked'|'maintenance'|'out_of_window'; message:string };
+    const gRow = firstRow<{ gate:'ok'|'blocked'|'maintenance'|'out_of_window'; message:string }>(gate.data);
+    const status = gRow?.gate ?? 'blocked';
+    const message = gRow?.message ?? '';
     return { consumed:true, gate:status, message, userId };
   } catch (e:any) {
     return { consumed:false, gate:'blocked' as const, message: e?.message ?? '네트워크 오류', userId:null };
