@@ -230,7 +230,7 @@ export default function Wardrobe() {
       const id = equipped[slot];
       if (!id) continue;
       const it = getItemByAnyId(id);
-      items.push({ id, slot, src: it?.src, name: it?.name ?? id });
+      items.push({ id, slot, src: pickSrc(it), name: it?.name ?? id });
     }
     return items;
   }, [equipped, catalogByIdL]);
@@ -381,16 +381,15 @@ export default function Wardrobe() {
               title={i.id}
             >
               <div className="w-full aspect-square rounded-lg overflow-hidden bg-white/5 grid place-items-center relative">
-                {i.src ? (
-                  <img
-                    src={normalizeSrc(i.src)}
-                    alt={i.name ?? i.id}
-                    className="max-w-full max-h-full object-contain pointer-events-none"
-                    loading="lazy"
-                  />
-                ) : (
-                  <span className="text-xs opacity-60">이미지 없음</span>
-                )}
+                {(() => {
+                  const full = getItemByAnyId(i.id) ?? i; // 카탈로그 원본 우선
+                  const src = pickSrc(full);
+                  return src ? (
+                    <img src={src} alt={full.name ?? i.id} className="max-w-full max-h-full object-contain pointer-events-none" loading="lazy" />
+                  ) : (
+                    <span className="text-xs opacity-60">이미지 없음</span>
+                  );
+                })()}
                 {selected && (
                   <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-600/80 text-white">
                     장착중

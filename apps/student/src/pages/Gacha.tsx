@@ -113,11 +113,12 @@ export default function Gacha(){
       <div className="mt-6 grid grid-cols-3 gap-3">
         {results.map((id, i) => {
           const it = cat[id] ?? catL[id.toLowerCase()];
+          const src = pickSrc(it); // ← 다양한 키(src/image/renderSrc/thumbnail...) + BASE_URL 보정
           return (
             <div key={i} className="border border-white/10 rounded-xl p-2 flex flex-col items-center">
               <div className="w-20 h-20 bg-white/5 rounded-lg overflow-hidden flex items-center justify-center">
-                {it?.src
-                  ? <img src={normalizeSrc(it.src)} alt={it?.name ?? id} className="w-full h-full object-contain" />
+                {src
+                  ? <img src={src} alt={it?.name ?? id} className="w-full h-full object-contain" />
                   : <span className="text-xs opacity-60">이미지 없음</span>}
               </div>
               <div className="mt-2 text-xs text-center leading-tight">
