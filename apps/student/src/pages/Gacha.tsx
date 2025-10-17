@@ -9,12 +9,17 @@ import { newIdempotencyKey } from '../shared/lib/idempotency';
 type Wearable = { id: string; name?: string; slot?: string; src?: string; rarity?: string };
 type CatalogMap = Record<string, Wearable>;
 
+// 🔧 wearables.v1.json은 "id -> item" 맵 구조입니다.
 async function loadCatalogMap(): Promise<CatalogMap> {
   const res = await fetch('/packs/wearables.v1.json');
   const raw = await res.json();
-  const items: Wearable[] = Array.isArray(raw) ? raw : (raw.items ?? []);
+  // 맵이면 그대로, 배열/다른 형태면 아이디 키로 변환
+  if (raw && !Array.isArray(raw) && typeof raw === 'object') {
+    return raw as CatalogMap;
+  }
+  const arr: Wearable[] = Array.isArray(raw) ? raw : (raw.items ?? []);
   const map: CatalogMap = {};
-  for (const it of items) map[it.id] = it;
+  for (const it of arr) map[it.id] = it;
   return map;
 }
 
@@ -40,13 +45,19 @@ export default function Gacha(){
     setErr(null);
     try {
       const res = await gacha.open(pool, n, { idempotencyKey: newIdempotencyKey('gacha') });
-      // 1) 소유 인벤토리에 영구 반영 (중복은 내부에서 무시되도록)
+
+      // ⬇️ 핵심: 소유 인벤토리에 '획득' 반영 (중복은 내부에서 무시되도록 설계)
       await inv.apply({ cosmeticsAdd: res.results, reason: 'gacha:open' });
-      // 2) 코인 최신화
+
+      // 코인 최신화
       const s = await inv.load();
       setCoins(s.coins);
-      // 3) 결과 카드 그리드에 표기
+
+      // 결과 카드 그리드 표시
       setResults(prev => [...res.results, ...prev].slice(0, 50));
+
+      // 옷장 등에서 즉시 반영되도록 이벤트 브로드캐스트(간단 버스)
+      window.dispatchEvent(new CustomEvent('inv:changed'));
     } catch (e:any) {
       setErr(e?.message ?? '가챠 실패');
     }
@@ -54,7 +65,7 @@ export default function Gacha(){
 
   return (
     <div className="p-6 max-w-xl mx-auto">
-      {/* 상단 네비게이션 */}
+      {/* 상단 네비 */}
       <div className="flex items-center justify-between">
         <Link to="/" className="text-sm opacity-80 hover:opacity-100">← 메인으로</Link>
         <Link to="/wardrobe" className="text-sm opacity-80 hover:opacity-100">옷장으로 →</Link>
@@ -67,6 +78,7 @@ export default function Gacha(){
       <div className="mt-4 flex gap-3">
         <button className="px-3 py-2 bg-slate-700 rounded" onClick={()=>draw(1)}>1회</button>
         <button className="px-3 py-2 bg-slate-700 rounded" onClick={()=>draw(10)}>10회</button>
+        {/* DEV: 테스트 코인 */}
         <button
           className="ml-auto px-3 py-2 bg-emerald-700 rounded"
           onClick={async ()=>{
@@ -77,7 +89,7 @@ export default function Gacha(){
         </button>
       </div>
 
-      {/* 결과: 카드형 그리드 */}
+      {/* 결과: 박스형 카드 그리드 */}
       <div className="mt-6 grid grid-cols-3 gap-3">
         {results.map((id, i) => {
           const it = cat[id];
@@ -97,7 +109,7 @@ export default function Gacha(){
         })}
       </div>
 
-      {/* 하단 네비게이션 */}
+      {/* 하단 네비 */}
       <div className="mt-6 flex justify-end gap-3">
         <Link to="/wardrobe" className="px-3 py-2 bg-indigo-700 rounded">옷장에서 확인</Link>
       </div>

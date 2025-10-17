@@ -52,6 +52,31 @@ export default function Wardrobe(){
     })();
   }, [inv]);
 
+  // ✅ 가챠/인벤 변경 즉시 반영 훅 (초기 로딩 로직은 그대로 유지)
+  useEffect(() => {
+    let alive = true;
+
+    const onInvChanged = async () => {
+      // 최신 인벤토리 상태 재조회
+      const s = await inv.load();
+      if (!alive) return;
+      setInvState(s);
+    };
+
+    // 가챠/인벤 적용 측에서 dispatch하는 CustomEvent
+    window.addEventListener('inv:changed', onInvChanged as EventListener);
+
+    // (선택) 탭 전환 후 돌아왔을 때도 신선한 상태 보장
+    const onFocus = () => onInvChanged();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      alive = false;
+      window.removeEventListener('inv:changed', onInvChanged as EventListener);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [inv]);
+
   const equipped = (invState?.equipped || {}) as Partial<Record<Slot, string>>;
   const layers = useMemo(() => equippedToLayers(equipped as any, catalog), [equipped, catalog]);
   const [rarityFilter, setRarityFilter] = useState<'all'|Rarity>('all');
