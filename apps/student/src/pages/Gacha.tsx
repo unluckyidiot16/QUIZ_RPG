@@ -7,12 +7,30 @@ import { loadWearablesCatalog } from '../core/wearable.catalog';
 import type { GachaPoolDef } from '../core/items';
 import { newIdempotencyKey } from '../shared/lib/idempotency';
 
-const prefix = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+// BASE_URL-safe 이미지 경로 정규화
+const __prefix = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
 const normalizeSrc = (src?: string) => {
   if (!src) return undefined;
   if (/^https?:\/\//i.test(src)) return src;
-  return src.startsWith("/") ? `${prefix}${src}` : `${prefix}/${src}`;
+  return src.startsWith("/") ? `${__prefix}${src}` : `${__prefix}/${src}`;
 };
+
+// 다양한 스키마 대응: src | image | url | thumbnail | images[0] | assets[0] ...
+const pickSrc = (it?: any) =>
+  normalizeSrc(
+    it?.src ??
+    it?.image ??
+    it?.img ??
+    it?.renderSrc ??
+    it?.render ??
+    it?.thumbnail ??
+    it?.thumb ??
+    (Array.isArray(it?.images) ? it.images[0] : undefined) ??
+    (Array.isArray(it?.assets) ? it.assets[0] : undefined) ??
+    (typeof it?.file === "string" ? it.file : undefined) ??
+    (typeof it?.url === "string" ? it.url : undefined)
+  );
+
 
 export default function Gacha(){
   const { inv, gacha } = useMemo(() => makeServices(), []);
