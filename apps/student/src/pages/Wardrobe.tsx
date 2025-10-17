@@ -20,8 +20,8 @@ type WearableItem = {
 type InvState = {
   coins: number;
   equipped: Partial<Record<Slot, string>>;
-  owned?: string[];           // 프로젝트에 따라 둘 중 하나 사용
-  cosmeticsOwned?: string[];  // ^
+  owned?: any;           // 배열/객체/Set 모두 허용
+  cosmeticsOwned?: any;  // ^
 };
 
 const SLOTS: Slot[] = [
@@ -35,7 +35,6 @@ const SLOT_LABEL: Record<Slot,string> = {
   Bag:"가방", Body:"바디", Face:"페이스",
 };
 
-/** 희귀도 문자열 정규화 (없으면 common 취급) */
 function asRarity(r?: string): Rarity {
   const v = (r ?? "common").toLowerCase();
   if (v === "uncommon") return "uncommon";
@@ -51,7 +50,6 @@ async function loadCatalogMap(): Promise<Record<string, WearableItem>> {
   const res = await fetch("/packs/wearables.v1.json", { cache: "no-store" });
   const raw = await res.json();
   if (raw && !Array.isArray(raw) && typeof raw === "object") {
-    // id -> item 맵 구조
     return raw as Record<string, WearableItem>;
   }
   const arr: WearableItem[] = Array.isArray(raw) ? raw : (raw.items ?? []);
@@ -60,8 +58,18 @@ async function loadCatalogMap(): Promise<Record<string, WearableItem>> {
   return map;
 }
 
-/** 소문자 정규화 */
+/** ── 유틸 ─────────────────────────────────────────────── */
 const toL = (s?: string) => (s ?? "").toLowerCase();
+
+/** 어떤 형태든 id 배열로 정규화 (배열/객체/Set/문자열 안전처리) */
+function toIdArray(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((x) => typeof x === "string");
+  if (raw instanceof Set) return Array.from(raw).filter((x) => typeof x === "string");
+  if (typeof raw === "object") return Object.keys(raw); // {id:true} 같은 형태
+  if (typeof raw === "string") return raw ? [raw] : [];
+  return [];
+}
 
 /** 슬롯 추론(카탈로그에 없는 보유 아이템 표시에 사용) */
 function inferSlotFromId(id: string): Slot | undefined {
@@ -87,10 +95,7 @@ function pickDefaultId(slot: Slot, catalog: Record<string, WearableItem>): strin
   const items = Object.values(catalog).filter(i => i.slot === slot);
   const score = (it: WearableItem) => {
     const s = `${it.id} ${it.name ?? ""}`.toLowerCase();
-    if (
-      s.includes("blank") || s.includes("basic") || s.includes("regular") || s.includes("default") ||
-      s.endsWith(".null")
-    ) return 0;
+    if (s.includes("blank") || s.includes("basic") || s.includes("regular") || s.includes("default") || s.endsWith(".null")) return 0;
     return 1;
   };
   return items.sort((a,b)=>score(a)-score(b))[0]?.id;
@@ -109,6 +114,7 @@ function equippedToLayers(equipped: Partial<Record<Slot,string>>, catalog: Recor
   return layers;
 }
 
+/** ── 컴포넌트 ─────────────────────────────────────────── */
 export default function Wardrobe() {
   const { inv } = useMemo(() => makeServices(), []);
   const [invState, setInvState] = useState<InvState | null>(null);
@@ -118,7 +124,7 @@ export default function Wardrobe() {
   const [ownedOnly, setOwnedOnly] = useState(false);
   const [rarityFilter, setRarityFilter] = useState<"all" | Rarity>("all");
 
-  /** 초기 로딩 (그대로) */
+  /** 초기 로딩 */
   useEffect(() => {
     (async () => {
       try {
@@ -158,15 +164,15 @@ export default function Wardrobe() {
   }, [catalog]);
 
   /** 보유/장착 정규화 세트 */
-  const ownedIds = useMemo(
-    () => ((invState as any)?.cosmeticsOwned ?? (invState as any)?.owned ?? []) as string[],
-    [invState]
-  );
+  const ownedIds = useMemo(() => {
+    const raw = (invState as any)?.cosmeticsOwned ?? (invState as any)?.owned ?? [];
+    return toIdArray(raw);
+  }, [invState]);
   const ownedSetL = useMemo(() => new Set(ownedIds.map(toL)), [ownedIds]);
 
   const equipped = (invState?.equipped || {}) as Partial<Record<Slot, string>>;
   const equippedSetL = useMemo(
-    () => new Set(Object.values(equipped).filter(Boolean).map(toL)),
+    () => new Set(Object.values(equipped ?? {}).filter(Boolean).map(toL)),
     [equipped]
   );
 
@@ -177,7 +183,7 @@ export default function Wardrobe() {
     return s;
   }, [ownedSetL, equippedSetL]);
 
-  /** 어떤 ID든(대/소문자 불문) 카탈로그 아이템 얻기 / 정규 ID로 바꾸기 */
+  /** 어떤 ID든 카탈로그 아이템 얻기 / 정규 ID로 바꾸기 */
   const getItemByAnyId = (id: string) => catalogByIdL[toL(id)];
   const toCanonicalId   = (id: string) => getItemByAnyId(id)?.id ?? id;
 
@@ -187,7 +193,7 @@ export default function Wardrobe() {
     for (const idL of ownedSetL) {
       if (!base[idL]) {
         base[idL] = {
-          id: idL,                           // 임시(정규 id 없음)
+          id: idL,
           name: idL,
           slot: (inferSlotFromId(idL) ?? "Clothes") as Slot,
           rarity: "common",
@@ -198,7 +204,7 @@ export default function Wardrobe() {
     return base;
   }, [catalogByIdL, ownedSetL]);
 
-  /** 프리뷰 레이어: 정규 카탈로그(catalogByIdL) 사용 */
+  /** 프리뷰 레이어: 정규 카탈로그 사용 */
   const layers = useMemo(() => {
     const items: { id:string; slot:Slot; src?:string; name?:string }[] = [];
     for (const slot of SLOTS) {
@@ -224,7 +230,7 @@ export default function Wardrobe() {
     return m;
   }, [allItems, ownedOnly, ownedPlusEquippedL]);
 
-  /** 리스트 필터 (active 절대 사용 X) */
+  /** 리스트 필터 */
   const equippedId = equipped[activeSlot];
   const list = useMemo(() => {
     const rq = q.trim().toLowerCase();
@@ -250,7 +256,7 @@ export default function Wardrobe() {
         })();
 
     await inv.apply({ equip: { [slot]: nextId }, reason: itemId ? "wardrobe:equip" : "wardrobe:unequip" });
-    window.dispatchEvent(new CustomEvent("inv:changed"));       // 다른 화면 즉시 갱신
+    window.dispatchEvent(new CustomEvent("inv:changed"));
     setInvState(await inv.load() as any);
   }
 
