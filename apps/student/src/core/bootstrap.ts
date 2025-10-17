@@ -1,196 +1,155 @@
-// apps/student/src/core/bootstrap.ts
-// 최초 1회 서버 동기화 + 기본 인벤토리 세팅 + 내부 큐/프루프 준비
+// apps/student/src/shared/ui/AvatarRenderer.tsx
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-// === 타입(필요 슬롯만 남겨 사용) ===
-export type Slot =
-  | 'body'
-  | 'eyes'
-  | 'mouth'
-  | 'frame'
-  | 'hat'
-  | 'badge'
-  | 'bg';
-
-export type Equip = Partial<Record<Slot, string>>;
-
-export type WearableItem = {
+export type Layer = {
   id: string;
-  slot: Slot;
+  slot: string;              // 'body' | 'eyes' | ...
+  src: string;               // 이미지 URL (필수)
   name?: string;
-  src: string;
-  z?: number;
-  default?: boolean;
-  isDefault?: boolean;
-  rarity?: string;
+  z: number;                 // 그리기 순서 (작을수록 먼저)
 };
 
-export type CatalogMap = Record<string, WearableItem>;
-export type InventoryState = {
-  equipped?: Equip;
-  // 필요한 필드 있으면 추가
+type Props = {
+  layers: Layer[];
+  size?: number;             // 렌더 크기(px) – 기본 160
+  playing?: boolean;         // 애니메이션 루프 유지 여부 (없어도 동작)
+  pixelRatio?: number;       // 고해상도 캔버스 배율 (기본 devicePixelRatio)
+  corsMode?: 'none' | 'anonymous'; // 교차출처 이미지일 때 'anonymous' 권장
 };
 
-let _booting = false;
-let _booted = false;
+type Loaded = { layer: Layer; img: HTMLImageElement };
 
-function getSb(): SupabaseClient {
-  const url = import.meta.env.VITE_SUPABASE_URL as string;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-  if (!url || !key) throw new Error('Missing Supabase env (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)');
-  return createClient(url, key);
-}
+export default function AvatarRenderer({
+                                         layers,
+                                         size = 160,
+                                         playing = false,
+                                         pixelRatio,
+                                         corsMode = 'none',
+                                       }: Props) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [loaded, setLoaded] = useState<Loaded[]>([]);
+  const rafRef = useRef<number | null>(null);
 
-// ---- 카탈로그 로드(프로젝트 기존 로더 대체/호출) ----
-async function loadCatalog(): Promise<CatalogMap> {
-  // 프로젝트의 기존 구현이 있으면 그걸 임포트해서 사용하세요.
-  // 여기서는 공개 정적 JSON 경로 기준 예시:
-  const res = await fetch('/data/catalog.json').catch(() => null);
-  if (!res || !res.ok) return {};
-  const arr = (await res.json()) as WearableItem[];
-  const map: CatalogMap = {};
-  for (const it of arr) map[it.id] = it;
-  return map;
-}
-
-// ---- 기본 아이템 선택 ----
-function pickDefaultId(catalog: CatalogMap, slot: Slot) {
-  const items = Object.values(catalog).filter(i => i.slot === slot);
-  return (
-    items.find(i => i.default || i.isDefault)?.id ??
-    items.find(i => i.rarity === 'common')?.id ??
-    items[0]?.id
+  // z 오름차순 정렬(안전)
+  const sorted = useMemo(
+    () => [...(layers || [])].filter(l => !!l?.src).sort((a, b) => a.z - b.z),
+    [layers]
   );
-}
 
-function makeDefaultEquip(catalog: CatalogMap): Equip {
-  const slots: Slot[] = ['body', 'eyes', 'mouth', 'frame', 'hat', 'badge', 'bg'];
-  const eq: Equip = {};
-  for (const s of slots) {
-    const id = pickDefaultId(catalog, s);
-    if (id) eq[s] = id;
-  }
-  return eq;
-}
+  // 이미지 로드
+  useEffect(() => {
+    let cancelled = false;
+    setLoaded([]);
 
-// ---- 로컬 스토리지 Fallback ----
-const LS_KEY = 'qrpg.inv.v2';
+    async function loadAll() {
+      const entries = await Promise.all(
+        sorted.map(
+          (layer) =>
+            new Promise<Loaded | null>((resolve) => {
+              const img = new Image();
+              if (corsMode === 'anonymous') img.crossOrigin = 'anonymous';
+              // 이미지가 크면 해상도 향상
+              (img as any).decoding = 'async';
+              img.onload = () => resolve({ layer, img });
+              img.onerror = () => resolve(null);
+              img.src = layer.src;
+            })
+        )
+      );
 
-function loadInvLocal(): InventoryState | null {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-function saveInvLocal(inv: InventoryState) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(inv));
-  } catch {}
-}
-
-// ---- 서버(슈파베이스) 인벤토리 (테이블명은 필요시 수정) ----
-async function loadInvServer(sb: SupabaseClient): Promise<InventoryState | null> {
-  try {
-    const { data: session } = await sb.auth.getSession();
-    const uid = session?.session?.user?.id;
-    if (!uid) return null;
-
-    // 예시: inventories 테이블에 user_id, data(JSON) 컬럼이 있다고 가정
-    const { data, error } = await sb
-      .from('inventories')
-      .select('data')
-      .eq('user_id', uid)
-      .single();
-    if (error) return null;
-    return (data?.data ?? null) as InventoryState | null;
-  } catch {
-    return null;
-  }
-}
-
-async function saveInvServer(sb: SupabaseClient, inv: InventoryState): Promise<boolean> {
-  try {
-    const { data: session } = await sb.auth.getSession();
-    const uid = session?.session?.user?.id;
-    if (!uid) return false;
-
-    const { error } = await sb
-      .from('inventories')
-      .upsert({ user_id: uid, data: inv }, { onConflict: 'user_id' });
-    return !error;
-  } catch {
-    return false;
-  }
-}
-
-// ---- Auth 보장(익명 로그인) ----
-async function ensureAuth(sb: SupabaseClient) {
-  const { data } = await sb.auth.getSession();
-  if (data.session) return;
-  // supabase-js v2.7+ 익명 로그인 지원 (2.75.0 사용 로그 확인됨)
-  const { error } = await sb.auth.signInAnonymously();
-  if (error) throw error;
-}
-
-// ---- (선택) 전투에서 하던 초기화 미리 실행 ----
-async function initProofOrQueues() {
-  // 전투 진입시 1회 하던 초기화가 있다면 이곳으로 이동 (안전하게 no-op)
-  // ex) await proof.init(); await queue.init();
-}
-
-// ---- 부트스트랩 본체 ----
-export async function bootstrapApp(): Promise<void> {
-  if (_booted || _booting) return;
-  _booting = true;
-
-  try {
-    const sb = getSb();
-    await ensureAuth(sb);
-
-    // 카탈로그/인벤토리 로드
-    const [catalog, invServer, invLocal] = await Promise.all([
-      loadCatalog(),
-      loadInvServer(sb),
-      Promise.resolve(loadInvLocal()),
-    ]);
-
-    // 우선순위: 서버 > 로컬 > 빈값
-    let inv: InventoryState = invServer ?? invLocal ?? {};
-
-    // 기본 착용 보장
-    const needs = !inv?.equipped || Object.keys(inv.equipped!).length === 0;
-    if (needs) {
-      inv = { ...inv, equipped: makeDefaultEquip(catalog) };
-    }
-
-    // 저장: 서버 시도 → 실패 시 로컬
-    const ok = await saveInvServer(sb, inv);
-    if (!ok) saveInvLocal(inv);
-
-    // (선택) 프로필 초기 마킹
-    try {
-      const { data: session } = await sb.auth.getSession();
-      const uid = session?.session?.user?.id;
-      if (uid) {
-        await sb.from('profiles').upsert({ user_id: uid, init_done: true }, { onConflict: 'user_id' });
+      if (!cancelled) {
+        setLoaded(entries.filter((e): e is Loaded => !!e));
       }
-    } catch {
-      /* ignore */
     }
 
-    await initProofOrQueues();
-    _booted = true;
-  } finally {
-    _booting = false;
-  }
-}
+    if (sorted.length) loadAll();
+    else setLoaded([]);
 
-// === 라우터에서 쓰기 좋게 기존 API도 내보내기 ===
-export async function bootstrapFirstRun() {
-  // 기존 파일에서 이 함수를 이미 사용 중이었으므로, 내부에서 bootstrapApp을 호출
-  await bootstrapApp();
+    return () => { cancelled = true; };
+  }, [sorted, corsMode]);
+
+  // 캔버스 그리기
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr =
+      typeof window !== 'undefined'
+        ? Math.max(1, Math.min(3, pixelRatio ?? (window.devicePixelRatio || 1)))
+        : (pixelRatio ?? 1);
+
+    const w = Math.round(size * dpr);
+    const h = Math.round(size * dpr);
+
+    // 캔버스 리사이즈(고해상도)
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
+    }
+
+    function drawOnce() {
+      ctx.clearRect(0, 0, w, h);
+      // 모든 레이어를 동일 크기로 합성 (이미지 자체가 정사이즈 시 정확히 겹침)
+      for (const { img } of loaded) {
+        // 필요 시 개별 레이어 오프셋/스케일이 있으면 여기서 반영
+        ctx.drawImage(img, 0, 0, w, h);
+      }
+    }
+
+    function loop() {
+      drawOnce();
+      if (playing) rafRef.current = requestAnimationFrame(loop);
+    }
+
+    // 첫 프레임
+    if (playing) {
+      rafRef.current && cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(loop);
+    } else {
+      drawOnce();
+    }
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [loaded, size, pixelRatio, playing]);
+
+  // 로딩/비어있는 상태 가드
+  const isEmpty = !sorted.length || !loaded.length;
+
+  return (
+    <div
+      className="avatar-renderer"
+  style={{ display: 'inline-block', width: size, height: size }}
+  aria-label="avatar"
+  >
+  <canvas ref={canvasRef} />
+  {isEmpty && (
+    <div
+      style={{
+    position: 'relative',
+      marginTop: -size,
+      width: size,
+      height: size,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 12,
+      color: '#888',
+      userSelect: 'none',
+  }}
+  >
+    loading…
+        </div>
+  )}
+  </div>
+);
 }
