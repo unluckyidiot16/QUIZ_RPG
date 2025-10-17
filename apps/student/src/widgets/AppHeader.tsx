@@ -52,11 +52,11 @@ function toLayers(equipped: Equipped, catalog: Record<string, WearableItem>) {
     if (!id) continue;
     const it = catalog[id] ?? catalog[toL(id)];
     layers.push({
-      id,
-      slot,
-      src: pickSrc(it),
-      name: it?.name ?? id,
-      z: getZ(slot, it),
+        id,
+        slot,
+        src: pickSrc(it) ?? '',
+        name: it?.name ?? id,
+        z: getZ(slot, it),
     });
   }
   // 낮은 z 아래, 높은 z 위
@@ -120,7 +120,11 @@ export default function AppHeader() {
     <header className="w-full px-4 py-3 flex items-center gap-3 bg-slate-900/60">
       <div className="shrink-0">
         {ready && hasEquip ? (
-          <AvatarRenderer layers={layers} size={120} corsMode="none" />
+          <AvatarRenderer
+            layers={layers.map(l => ({ ...l, src: l.src ?? '' }))}
+            size={120}
+            corsMode="none"
+          />
         ) : (
           <div style={{ width: 120, height: 120 }} />
         )}

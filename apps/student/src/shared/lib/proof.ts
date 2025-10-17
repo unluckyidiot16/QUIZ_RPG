@@ -1,7 +1,12 @@
 // 이벤트 체인: H0=nonce, Hi=sha256(Hi-1 || JSON(ev))
 const enc = new TextEncoder();
-async function sha256(u8: Uint8Array){
-  const d = await crypto.subtle.digest('SHA-256', u8);
+export async function sha256(input: string | ArrayBuffer | Uint8Array) {
+  const u8 =
+    typeof input === 'string' ? new TextEncoder().encode(input) :
+      input instanceof Uint8Array ? input :
+        new Uint8Array(input); // ArrayBuffer → Uint8Array
+
+  const d = await crypto.subtle.digest('SHA-256', u8); // ← 뷰를 그대로 전달
   return new Uint8Array(d);
 }
 function concat(a: Uint8Array, b: Uint8Array){

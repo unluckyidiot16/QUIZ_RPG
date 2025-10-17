@@ -10,7 +10,7 @@ const K_USER = 'qd:userId';
 const K_RUN  = 'qd:runToken';
 
 export async function guestLogin(token: string): Promise<string> {
-  const { data, error } = await getClient().rpc('guest_login', { p_token: token });
+  const { data, error } = await getClient().rpc('guest_login' as any, { p_token: token } as any);
   if (error) throw new Error(error.message);
   const userId = String(data);
   localStorage.setItem(K_USER, userId);

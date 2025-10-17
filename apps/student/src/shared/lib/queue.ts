@@ -1,4 +1,4 @@
-import type { RunSummary } from '../api';
+import type { RunSummary } from '../../api';
 
 const KEY = 'qd:finishQueue';
 

@@ -28,7 +28,7 @@ export default function Result() {
   const parsed: any = useMemo(() => (raw ? JSON.parse(raw) : null), [raw]);
 
   // 호환: 배열(턴 로그)로 저장된 옛 포맷도 요약으로 변환
-  const data: Omit<RunSummary, 'runToken'> | null = useMemo(() => {
+  const data: Omit<RunSummary, 'runToken' | 'finalHash'> | null = useMemo(() => {
     if (!parsed) return null;
     if (Array.isArray(parsed)) {
       const turns = parsed;
@@ -66,7 +66,7 @@ export default function Result() {
       return;
     }
 
-    const summary: RunSummary = { ...data, runToken };
+    const summary: RunSummary = { ...data, runToken, finalHash: '' };
     try {
       const r = await finishDungeon(summary);
       setResp(r);
@@ -87,7 +87,7 @@ export default function Result() {
       return;
     }
     setSubmitting(true);
-    const summary: RunSummary = { ...data, runToken };
+    const summary: RunSummary = { ...data, runToken, finalHash: '' };
     try {
       const r = await finishDungeon(summary);
       setResp(r);

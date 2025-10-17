@@ -179,9 +179,12 @@ export default function Wardrobe() {
   useEffect(() => {
     (async () => {
       try {
-        const [s, cat] = await Promise.all([inv.load(), loadWearablesCatalog()]);
+        const [s, catAny] = await Promise.all([inv.load(), loadWearablesCatalog()]);
         setInvState(s as any);
-        setCatalog(cat);
+        const catMap: Record<string, WearableItem> = Array.isArray(catAny)
+          ? Object.fromEntries((catAny as WearableItem[]).map(it => [it.id, it]))
+          : (catAny as Record<string, WearableItem>);
+        setCatalog(catMap);
       } catch {/* ignore */}
     })();
   }, [inv]);

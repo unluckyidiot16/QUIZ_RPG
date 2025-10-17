@@ -84,7 +84,7 @@ export function resetLocalRunState() {
 
 export async function guestLogin(token: string): Promise<string> {
   if (!SUPABASE_READY) throw new Error('서버 설정 누락');
-  const { data, error } = await getClient().rpc('guest_login', { p_token: token });
+  const { data, error } = await getClient().rpc('guest_login' as any, { p_token: token } as any);
   if (error) throw error;
   const userId = data as string;
   localStorage.setItem('qd:userId', userId);
