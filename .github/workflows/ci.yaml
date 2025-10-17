@@ -16,6 +16,11 @@ jobs:
     permissions:
       contents: read
 
+    env:
+      # Cloudflare 자격증명 (리포 시크릿에 저장해둔 값)
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,19 +43,13 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile=false
 
-      - name: Show tool versions
-        run: |
-          node -v
-          pnpm -v
-
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Build student
         run: pnpm -C apps/student build
 
-      # Ensure SPA fallback copied into dist (if your public/_redirects exists this is optional)
-      - name: Ensure SPA fallback (Cloudflare Pages)
+      - name: Ensure SPA fallback (_redirects)
         run: |
           if [ -f apps/student/public/_redirects ]; then
             cp apps/student/public/_redirects apps/student/dist/_redirects
@@ -58,12 +57,18 @@ jobs:
             echo '/* /index.html 200' > apps/student/dist/_redirects
           fi
 
-      - name: Publish to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          packageManager: npm            # ← pnpm 말고 npm로 wrangler 설치
-          wranglerVersion: '3'           # (선택) 버전 고정
-          # Change the project name to your actual Cloudflare Pages project
-          command: pages deploy apps/student/dist --project-name=quiz-rpg
+      # ⬇️ wrangler-action 대신 CLI 사용 (npm 전역 설치)
+      - name: Install Wrangler (global)
+        run: npm i -g wrangler@3
+        env:
+          NPM_CONFIG_FUND: false
+          NPM_CONFIG_AUDIT: false
+          npm_config_unsafe_perm: true
+
+      - name: Show Wrangler version
+        run: wrangler --version
+
+      - name: Deploy to Cloudflare Pages (student)
+        run: >
+          wrangler pages deploy apps/student/dist
+          --project-name=quiz-rpg
