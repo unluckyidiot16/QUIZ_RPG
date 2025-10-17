@@ -55,11 +55,11 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer4_Shoes/Layer4_Shoes_Blank1.png",
     "rarity": "uncommon"
   },
-  "dress.Null": {
-    "id": "dress.Null",
+  "clothes.Null": {
+    "id": "clothes.Null",
     "name": "없음",
     "slot": "Clothes",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer5_Dress_Null.png",
+    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer5_Clothes_Null.png",
     "rarity": "common"
   },
   "dress.blank1": {
@@ -68,13 +68,6 @@
     "slot": "Clothes",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer5_Dress_Blank1.png",
     "rarity": "uncommon"
-  },
-  "shirts.Null": {
-    "id": "shirts.Null",
-    "name": "없음",
-    "slot": "Clothes",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer5_Shirt_Null.png",
-    "rarity": "common"
   },
   "shirts.blank1": {
     "id": "shirts.blank1",
@@ -165,6 +158,13 @@
     "name": "묶은 머리 [하양]",
     "slot": "Hair",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer11_Hair/Layer11_BunHair_Blank1.png",
+    "rarity": "common"
+  },
+  "Hat.Null": {
+    "id": "Hat.Null",
+    "name": "없음",
+    "slot": "Clothes",
+    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer12_Hat_Null.png",
     "rarity": "common"
   },
   "bow.blank1": {
