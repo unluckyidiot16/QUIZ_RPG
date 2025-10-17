@@ -1,37 +1,50 @@
 // scripts/sheet_to_wearables.mjs
-// Google Sheet(gviz JSON) → apps/student/public/packs/wearables.v1.json
-// 컬럼 권장: id, name, slot, path, opacity, scale, offsetX, offsetY, atlasCols, atlasRows, atlasFrames, atlasFps, active
+// Google Sheet (gviz JSON) → apps/student/public/packs/wearables.v1.json
+// 컬럼(한/영) 자유: id, name(이름), slot(슬롯), path/src/image/url/thumbnail/file(이미지/경로),
+// rarity(희귀도/등급), opacity, scale, offsetX(오프셋X), offsetY(오프셋Y),
+// atlasCols/Rows/Frames/Fps, active(활성/사용/enabled)
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const RSET = new Set(['common','uncommon','rare','epic','legendary','mythic']);
-const normRarity = v => {
-  const s = String(v ?? '').trim().toLowerCase();
-  return RSET.has(s) ? s : undefined;
-};
+// ──────────────────────────────────────────────────────────────
+// 환경 변수
+// ──────────────────────────────────────────────────────────────
+const SHEET_ID    = process.env.SHEET_ID;  // 필수
+const SHEET_NAME  = process.env.SHEET_NAME || '';   // 있으면 지정
+const ASSETS_ROOT = (process.env.ASSETS_ROOT || 'https://unluckyidiot16.github.io/assets-common/QuizRpg/')
+  .replace(/\/+$/,'') + '/';
+const OUT_PATH    = process.env.OUT_PATH || 'apps/student/public/packs/wearables.v1.json';
+const FORCE       = String(process.env.FORCE || 'false').toLowerCase() === 'true';
 
-// ── add under existing const RSET/normRarity ──
-const RMAP = new Map([
-  ['n','common'], ['common','common'],
-  ['r','rare'],   ['rare','rare'],
-  ['sr','epic'],  ['epic','epic'],
-  ['ssr','legendary'], ['legendary','legendary'],
-  ['mythic','mythic'],
+if (!SHEET_ID) {
+  console.error('[wearables] SHEET_ID is required.');
+  process.exit(1);
+}
+
+// ──────────────────────────────────────────────────────────────
+// Node 16 호환 fetch
+// ──────────────────────────────────────────────────────────────
+async function httpGet(url) {
+  if (typeof fetch === 'function') return fetch(url, { cache: 'no-store' });
+  const { default: nodeFetch } = await import('node-fetch');
+  return nodeFetch(url);
+}
+
+// ──────────────────────────────────────────────────────────────
+const ALLOWED_SLOTS = new Set([
+  'Body','Face','BodySuit','Pants','Shoes','Clothes','Sleeves',
+  'Necklace','Bag','Scarf','Bowtie','Hair','Hat'
 ]);
-const normRarity2 = v => {
-  const s = String(v ?? '').trim().toLowerCase();
-  return RMAP.get(s) || (RSET.has(s) ? s : undefined);
-};
 
 const SLOT_SYNONYM = new Map([
-  ['shirt','Clothes'], ['shirts','Clothes'], ['dress','Clothes'],
-  ['scaf','Scarf'],    ['scarf','Scarf'],
+  ['shirt','Clothes'], ['shirts','Clothes'], ['dress','Clothes'], ['clothes','Clothes'],
+  ['scaf','Scarf'], ['scarf','Scarf'],
   ['hair','Hair'], ['hat','Hat'], ['bow','Hat'],
-  ['bag','Bag'],   ['bowtie','Bowtie'], ['necklace','Necklace'],
+  ['bag','Bag'], ['bowtie','Bowtie'], ['necklace','Necklace'],
   ['pants','Pants'], ['shoes','Shoes'],
   ['bodysuit','BodySuit'], ['sleeve','Sleeves'], ['sleeves','Sleeves'],
-  ['body','Body'], ['face','Face'], ['clothes','Clothes'],
+  ['body','Body'], ['face','Face'],
 ]);
 
 function inferSlotFromId(id='') {
@@ -52,22 +65,18 @@ function canonSlot(slotRaw, id) {
   return undefined;
 }
 
-
-const SHEET_ID   = process.env.SHEET_ID;
-const SHEET_NAME = process.env.SHEET_NAME || '';
-const ASSETS_ROOT = (process.env.ASSETS_ROOT || 'https://unluckyidiot16.github.io/assets-common/QuizRpg/').replace(/\/+$/,'') + '/';
-const OUT_PATH   = process.env.OUT_PATH || 'apps/student/public/packs/wearables.v1.json';
-const FORCE      = String(process.env.FORCE || 'false').toLowerCase() === 'true';
-
-if (!SHEET_ID) {
-  console.error('[wearables] SHEET_ID is required (secrets.WEAR_SHEET_ID).');
-  process.exit(1);
-}
-
-const ALLOWED_SLOTS = new Set([
-  'Body','Face','BodySuit','Pants','Shoes','Clothes',
-  'Sleeves','Necklace','Bag','Scarf','Bowtie','Hair','Hat'
+const RSET = new Set(['common','uncommon','rare','epic','legendary','mythic']);
+const RMAP = new Map([
+  ['n','common'], ['common','common'],
+  ['r','rare'],   ['rare','rare'],
+  ['sr','epic'],  ['epic','epic'],
+  ['ssr','legendary'], ['legendary','legendary'],
+  ['mythic','mythic'],
 ]);
+const normRarity = v => {
+  const s = String(v ?? '').trim().toLowerCase();
+  return RMAP.get(s) || (RSET.has(s) ? s : undefined);
+};
 
 const joinUrl = (...p) => p.join('/').replace(/([^:])\/{2,}/g, '$1/');
 
@@ -77,108 +86,153 @@ function buildGvizUrl(id, sheetName=''){
 }
 
 function parseGviz(text){
-  const m = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)\s*;?$/);
+  const m = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)\s*;?\s*$/);
   if (!m) throw new Error('gviz parse fail: unexpected response');
   return JSON.parse(m[1]);
 }
 
 function toNum(v){ const n = Number(v); return Number.isFinite(n) ? n : undefined; }
-function toBool(v){ if (typeof v === 'boolean') return v; if (typeof v === 'string') return v.trim().toLowerCase()==='true'; return undefined; }
+function toMaybeBool(v){
+  if (typeof v === 'boolean') return v;
+  if (v == null) return undefined;
+  const s = String(v).trim().toLowerCase();
+  if (['y','yes','true','1','on','사용','활성','enable','enabled'].includes(s)) return true;
+  if (['n','no','false','0','off','미사용','비활성','disable','disabled'].includes(s)) return false;
+  return undefined;
+}
 
+// 헤더 인덱스 맵핑(소문자)
 function mapHeader(cols){
   const idx = {};
   cols.forEach((c, i) => { idx[(c?.label || '').trim().toLowerCase()] = i; });
-  return (row, key) => row?.c?.[idx[key]]?.v;
+  return idx;
+}
+
+// 다국어/별칭 지원 get(row, aliases[])
+function getV(row, headerIdx, aliases){
+  for (const key of aliases) {
+    const k = String(key).toLowerCase();
+    const i = headerIdx[k];
+    if (i == null) continue;
+    const val = row?.c?.[i]?.v;
+    if (val != null && val !== '') return val;
+  }
+  return undefined;
 }
 
 async function main(){
-  console.log('[wearables] fetching sheet…');
+  const url = buildGvizUrl(SHEET_ID, SHEET_NAME);
+  console.log('[wearables] fetching sheet…', url);
   let json;
   try {
-    const url = buildGvizUrl(SHEET_ID, SHEET_NAME);
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await httpGet(url);
     const txt = await res.text();
     json = parseGviz(txt);
   } catch (e) {
     console.error('[wearables] gviz fetch failed:', e?.message || e);
-    if (!FORCE) {
-      // 실패 시도: 변경 없음 처리 (워크플로우가 실패로 끊기지 않도록)
-      process.exit(0);
-    }
+    if (!FORCE) process.exit(0);
     throw e;
   }
 
   const rows = json?.table?.rows || [];
   const cols = json?.table?.cols || [];
-  const get = mapHeader(cols);
+  const headerIdx = mapHeader(cols);
+  console.log(`[wearables] rows=${rows.length}, cols=${cols.length}`);
+
+  // 컬럼 별칭 세트
+  const A_ID       = ['id','아이디'];
+  const A_NAME     = ['name','이름','ko','kr'];
+  const A_SLOT     = ['slot','슬롯','분류','카테고리','slotname'];
+  const A_RARITY   = ['rarity','희귀도','등급','tier','grade'];
+  const A_ACTIVE   = ['active','활성','활성화','사용','사용여부','enabled','enable'];
+
+  const A_PATHLIKE = [
+    'path','src','image','img','url','thumbnail','thumb','file','이미지','이미지경로','경로'
+  ];
+  const A_IMAGES   = ['images','assets','sprites','frames'];
+
+  const A_OPACITY  = ['opacity','투명도'];
+  const A_SCALE    = ['scale','스케일','배율'];
+  const A_OFFX     = ['offsetx','offx','x','좌표x','오프셋x'];
+  const A_OFFY     = ['offsety','offy','y','좌표y','오프셋y'];
+
+  const A_ACOLS    = ['atlascols','acol','acols','atlas_cols','atlas columns'];
+  const A_AROWS    = ['atlasrows','arow','arows','atlas_rows','atlas rows'];
+  const A_AFRAMES  = ['atlasframes','afr','aframes','atlas_frames'];
+  const A_AFPS     = ['atlasfps','afps','atlas_fps'];
 
   /** @type {Record<string, any>} */
   const out = {};
-  let total = 0, kept = 0, skipped = 0;
+  let total = 0, kept = 0, skipped = 0, actives = 0;
 
   for (const r of rows) {
     total++;
-    const active = toBool(get(r,'active'));
-    if (active === false) { skipped++; continue; }
+    const activeRaw = getV(r, headerIdx, A_ACTIVE);
+    const active = toMaybeBool(activeRaw); // ← 값을 보존(스킵하지 않음)
+    if (active === true) actives++;
 
-    const id   = String(get(r,'id') ?? '').trim();
-    const name = String((get(r,'name') ?? id) || '').trim();
-    // slot 유연화(동의어/추론 포함)
-    const slot = canonSlot(get(r,'slot'), id);
-    // path, src, image, url, thumbnail, file, images[0], assets[0] 등 폭넓게 지원
-    const candidates = [
-      get(r,'path'), get(r,'src'), get(r,'image'), get(r,'url'),
-      get(r,'thumbnail'), get(r,'file')
-    ];
-    // 배열형 열(images/assets)에 첫 값이 들어오는 경우
-    const imagesCell = get(r,'images');   // "a|b|c" 처럼 들어오면 첫 값
-    const assetsCell = get(r,'assets');
-    if (imagesCell && typeof imagesCell === 'string') {
-      candidates.push(imagesCell.split(/[|,]/)[0]);
+    const id   = String(getV(r, headerIdx, A_ID) ?? '').trim();
+    const name = String((getV(r, headerIdx, A_NAME) ?? id) || '').trim();
+
+    // 슬롯 정규화/추론
+    const slot = canonSlot(getV(r, headerIdx, A_SLOT), id);
+
+    // 경로 후보 (단일 컬럼 + 배열형 첫 값)
+    const candidates = [];
+    for (const key of A_PATHLIKE) {
+      const v = getV(r, headerIdx, [key]);
+      if (v != null) candidates.push(v);
     }
-    if (assetsCell && typeof assetsCell === 'string') {
-      candidates.push(assetsCell.split(/[|,]/)[0]);
+    for (const key of A_IMAGES) {
+      const vv = getV(r, headerIdx, [key]);
+      if (Array.isArray(vv) && vv.length) candidates.push(vv[0]);
+      else if (typeof vv === 'string' && vv) {
+        const first = vv.split(/[|,]/).map(s => s.trim()).filter(Boolean)[0];
+        if (first) candidates.push(first);
+      }
     }
+
     let pth = '';
     for (const v of candidates) {
       const s = String(v ?? '').trim();
       if (s) { pth = s; break; }
     }
 
-    if (!id)  { console.warn(`[wearables] skip: missing id`); skipped++; continue; }
+    // 유효성(필수 3종) 체크
+    if (!id)  { console.warn('[wearables] skip: missing id'); skipped++; continue; }
     if (!slot){ console.warn(`[wearables] skip: missing/invalid slot @${id}`); skipped++; continue; }
     if (!pth) { console.warn(`[wearables] skip: missing path/src @${id}`); skipped++; continue; }
 
+    // 절대/상대 경로 정리 → src 생성
     const isAbs = /^https?:\/\//i.test(pth);
-        // 앞뒤 슬래시 정리
-    const cleaned = pth.replace(/^\.?\/*/, '');
+    const cleaned = String(pth).replace(/^\.?\/*/, '');
     const src = isAbs ? pth : joinUrl(ASSETS_ROOT, cleaned);
 
-    const opacity = toNum(get(r,'opacity'));
-    const scale   = toNum(get(r,'scale'));
-    const ox      = toNum(get(r,'offsetx'));
-    const oy      = toNum(get(r,'offsety'));
-    const aCols   = toNum(get(r,'atlascols'));
-    const aRows   = toNum(get(r,'atlasrows'));
-    const aFrames = toNum(get(r,'atlasframes'));
-    const aFps    = toNum(get(r,'atlasfps'));
-    const rarity  = normRarity2(get(r,'rarity'));
+    const opacity = toNum(getV(r, headerIdx, A_OPACITY));
+    const scale   = toNum(getV(r, headerIdx, A_SCALE));
+    const ox      = toNum(getV(r, headerIdx, A_OFFX));
+    const oy      = toNum(getV(r, headerIdx, A_OFFY));
+    const aCols   = toNum(getV(r, headerIdx, A_ACOLS));
+    const aRows   = toNum(getV(r, headerIdx, A_AROWS));
+    const aFrames = toNum(getV(r, headerIdx, A_AFRAMES));
+    const aFps    = toNum(getV(r, headerIdx, A_AFPS));
+    const rarity  = normRarity(getV(r, headerIdx, A_RARITY));
 
-    
     const item = {
       id, name, slot, src,
       ...(rarity ? { rarity } : {}),
       ...(opacity != null ? { opacity } : {}),
       ...(scale   != null ? { scale }   : {}),
       ...((ox != null || oy != null) ? { offset: { x: ox || 0, y: oy || 0 } } : {}),
-      ...((aCols && aRows && aFrames) ? { atlas: { cols: aCols, rows: aRows, frames: aFrames, ...(aFps?{fps:aFps}:{}) } } : {})
+      ...((aCols && aRows && aFrames) ? { atlas: { cols: aCols, rows: aRows, frames: aFrames, ...(aFps?{fps:aFps}:{}) } } : {}),
+      ...(active !== undefined ? { active } : {}) // ← active를 JSON에 반영(스킵 X)
     };
 
     out[id] = item;
     kept++;
   }
 
-  // Pretty write only if changed
+  // 파일 쓰기 (변경시에만)
   const abs = path.resolve(process.cwd(), OUT_PATH);
   await fs.mkdir(path.dirname(abs), { recursive: true });
   const next = JSON.stringify(out, null, 2);
@@ -186,9 +240,9 @@ async function main(){
   try { prev = await fs.readFile(abs, 'utf8'); } catch {}
   if (prev !== next) {
     await fs.writeFile(abs, next, 'utf8');
-    console.log(`[wearables] wrote ${OUT_PATH} (total=${total}, kept=${kept}, skipped=${skipped})`);
+    console.log(`[wearables] wrote ${OUT_PATH} (total=${total}, kept=${kept}, skipped=${skipped}, active=true:${actives})`);
   } else {
-    console.log('[wearables] no changes detected.');
+    console.log('[wearables] no changes detected.', `(total=${total}, kept=${kept}, skipped=${skipped}, active=true:${actives})`);
   }
 }
 
