@@ -20,9 +20,8 @@ type WearableItem = {
 type InvState = {
   coins: number;
   equipped: Partial<Record<Slot, string>>;
-  /** 프로젝트에 따라 owned/cosmeticsOwned 중 하나를 씁니다. 둘 다 지원 */
-  owned?: string[];
-  cosmeticsOwned?: string[];
+  owned?: string[];           // 프로젝트에 따라 둘 중 하나 사용
+  cosmeticsOwned?: string[];  // ^
 };
 
 const SLOTS: Slot[] = [
@@ -61,12 +60,15 @@ async function loadCatalogMap(): Promise<Record<string, WearableItem>> {
   return map;
 }
 
-/** 슬롯 추론(카탈로그에 없는 보유 아이템을 표시하기 위한 안전장치) */
+/** 소문자 정규화 */
+const toL = (s?: string) => (s ?? "").toLowerCase();
+
+/** 슬롯 추론(카탈로그에 없는 보유 아이템 표시에 사용) */
 function inferSlotFromId(id: string): Slot | undefined {
-  const s = id.toLowerCase();
+  const s = toL(id);
   if (s.startsWith("hair.") || s.includes("hair")) return "Hair";
   if (s.startsWith("hat.") || s.startsWith("bow.")) return "Hat";
-  if (s.startsWith("shirts.") || s.startsWith("dress.")) return "Clothes";
+  if (s.startsWith("clothes.") || s.startsWith("shirts.") || s.startsWith("dress.")) return "Clothes";
   if (s.startsWith("bodysuit.")) return "BodySuit";
   if (s.startsWith("pants.")) return "Pants";
   if (s.startsWith("shoes.")) return "Shoes";
@@ -80,13 +82,15 @@ function inferSlotFromId(id: string): Slot | undefined {
   return undefined;
 }
 
-/** 기본 아이템 선택 (blank/basic/regular/default 우선) */
+/** 기본 아이템 선택 (blank/basic/regular/default/.null 우선) */
 function pickDefaultId(slot: Slot, catalog: Record<string, WearableItem>): string | undefined {
   const items = Object.values(catalog).filter(i => i.slot === slot);
   const score = (it: WearableItem) => {
     const s = `${it.id} ${it.name ?? ""}`.toLowerCase();
-    // 이름 휴리스틱
-    if (s.includes("blank") || s.includes("basic") || s.includes("regular") || s.includes("default")) return 0;
+    if (
+      s.includes("blank") || s.includes("basic") || s.includes("regular") || s.includes("default") ||
+      s.endsWith(".null")
+    ) return 0;
     return 1;
   };
   return items.sort((a,b)=>score(a)-score(b))[0]?.id;
@@ -114,16 +118,14 @@ export default function Wardrobe() {
   const [ownedOnly, setOwnedOnly] = useState(false);
   const [rarityFilter, setRarityFilter] = useState<"all" | Rarity>("all");
 
-  /** 초기 로딩 그대로 유지 */
+  /** 초기 로딩 (그대로) */
   useEffect(() => {
     (async () => {
       try {
         const [s, cat] = await Promise.all([inv.load(), loadCatalogMap()]);
         setInvState(s as any);
         setCatalog(cat);
-      } catch {
-        // ignore
-      }
+      } catch {/* ignore */}
     })();
   }, [inv]);
 
@@ -139,7 +141,6 @@ export default function Wardrobe() {
     };
     const onChanged = () => reload();
     const onFocus = () => reload();
-
     window.addEventListener("inv:changed", onChanged as EventListener);
     window.addEventListener("focus", onFocus);
     return () => {
@@ -149,67 +150,107 @@ export default function Wardrobe() {
     };
   }, [inv]);
 
-  /** 보유 ID 세트 */
-  const ownedSet = useMemo(() => {
-    const raw = (invState as any)?.cosmeticsOwned ?? (invState as any)?.owned ?? [];
-    return new Set<string>(Array.isArray(raw) ? raw : []);
-  }, [invState]);
+  /** 정규화 카탈로그: id(소문자) → item */
+  const catalogByIdL = useMemo(() => {
+    const m: Record<string, WearableItem> = {};
+    for (const [id, it] of Object.entries(catalog)) m[toL(id)] = it;
+    return m;
+  }, [catalog]);
 
-  /** 카탈로그 + 보유ID 머지 (카탈로그에 없는 보유 아이템도 플레이스홀더 생성) */
-  const mergedCatalog = useMemo(() => {
-    const base: Record<string, WearableItem> = { ...catalog };
-    for (const id of ownedSet) {
-      if (!base[id]) {
-        const slot = inferSlotFromId(id);
-        base[id] = { id, slot: (slot ?? "Clothes") as Slot, name: id, rarity: "common" };
-        console.warn("[wardrobe] owned id missing in catalog:", id);
+  /** 보유/장착 정규화 세트 */
+  const ownedIds = useMemo(
+    () => ((invState as any)?.cosmeticsOwned ?? (invState as any)?.owned ?? []) as string[],
+    [invState]
+  );
+  const ownedSetL = useMemo(() => new Set(ownedIds.map(toL)), [ownedIds]);
+
+  const equipped = (invState?.equipped || {}) as Partial<Record<Slot, string>>;
+  const equippedSetL = useMemo(
+    () => new Set(Object.values(equipped).filter(Boolean).map(toL)),
+    [equipped]
+  );
+
+  /** 기본 아이템도 “보유 취급”(장착되어 있으면 필터에서 안 사라지게) */
+  const ownedPlusEquippedL = useMemo(() => {
+    const s = new Set(ownedSetL);
+    for (const v of equippedSetL) s.add(v);
+    return s;
+  }, [ownedSetL, equippedSetL]);
+
+  /** 어떤 ID든(대/소문자 불문) 카탈로그 아이템 얻기 / 정규 ID로 바꾸기 */
+  const getItemByAnyId = (id: string) => catalogByIdL[toL(id)];
+  const toCanonicalId   = (id: string) => getItemByAnyId(id)?.id ?? id;
+
+  /** 카탈로그 + 보유ID(소문자) 머지: 카탈로그에 없는 보유 아이템 플레이스홀더 생성 */
+  const mergedCatalogL = useMemo(() => {
+    const base: Record<string, WearableItem> = { ...catalogByIdL };
+    for (const idL of ownedSetL) {
+      if (!base[idL]) {
+        base[idL] = {
+          id: idL,                           // 임시(정규 id 없음)
+          name: idL,
+          slot: (inferSlotFromId(idL) ?? "Clothes") as Slot,
+          rarity: "common",
+        };
+        console.warn("[wardrobe] owned id missing in catalog:", idL);
       }
     }
     return base;
-  }, [catalog, ownedSet]);
+  }, [catalogByIdL, ownedSetL]);
 
-  const equipped = (invState?.equipped || {}) as Partial<Record<Slot, string>>;
-  const equippedId = equipped[activeSlot];
-
-  /** 프리뷰 레이어: mergedCatalog 사용 (누락 아이템 대비) */
-  const layers = useMemo(
-    () => equippedToLayers(equipped, mergedCatalog),
-    [equipped, mergedCatalog]
-  );
+  /** 프리뷰 레이어: 정규 카탈로그(catalogByIdL) 사용 */
+  const layers = useMemo(() => {
+    const items: { id:string; slot:Slot; src?:string; name?:string }[] = [];
+    for (const slot of SLOTS) {
+      const id = equipped[slot];
+      if (!id) continue;
+      const it = getItemByAnyId(id);
+      items.push({ id, slot, src: it?.src, name: it?.name ?? id });
+    }
+    return items;
+  }, [equipped, catalogByIdL]);
 
   /** 전체 아이템(머지본) */
-  const allItems = useMemo(() => Object.values(mergedCatalog), [mergedCatalog]);
+  const allItems = useMemo(() => Object.values(mergedCatalogL), [mergedCatalogL]);
 
-  /** 슬롯별 개수 (보유만 보기 반영) */
+  /** 슬롯별 개수 (보유만 보기 반영: “장착 중”도 보유 취급) */
   const countsBySlot = useMemo(() => {
     const m = new Map<Slot, number>();
     for (const sl of SLOTS) m.set(sl, 0);
     for (const it of allItems) {
-      if (ownedOnly && !ownedSet.has(it.id)) continue;
-      m.set(it.slot as Slot, (m.get(it.slot as Slot) || 0) + 1);
+      if (ownedOnly && !ownedPlusEquippedL.has(toL(it.id))) continue;
+      m.set(it.slot, (m.get(it.slot) || 0) + 1);
     }
     return m;
-  }, [allItems, ownedOnly, ownedSet]);
+  }, [allItems, ownedOnly, ownedPlusEquippedL]);
 
-  /** 리스트 필터링 (슬롯/검색/희귀도/보유만) */
+  /** 리스트 필터 (active 절대 사용 X) */
+  const equippedId = equipped[activeSlot];
   const list = useMemo(() => {
     const rq = q.trim().toLowerCase();
     return allItems
-      .filter((i) => i.slot === activeSlot)
-      .filter((i) => (rq ? `${i.name ?? ""} ${i.id}`.toLowerCase().includes(rq) : true))
-      .filter((i) => (rarityFilter === "all" ? true : asRarity(i.rarity) === rarityFilter))
-      .filter((i) => !ownedOnly || ownedSet.has(i.id));
-  }, [allItems, activeSlot, q, rarityFilter, ownedOnly, ownedSet]);
+      .filter(i => i.slot === activeSlot)
+      .filter(i => (rq ? `${i.name ?? ""} ${i.id}`.toLowerCase().includes(rq) : true))
+      .filter(i => (rarityFilter === "all" ? true : asRarity(i.rarity) === rarityFilter))
+      .filter(i => !ownedOnly || ownedPlusEquippedL.has(toL(i.id)));
+  }, [allItems, activeSlot, q, rarityFilter, ownedOnly, ownedPlusEquippedL]);
 
-  /** 장착/해제 */
+  /** 장착/해제: 항상 “정규 ID”로 저장 */
   async function equip(slot: Slot, itemId?: string) {
     const nextId =
-      itemId ??
-      pickDefaultId(slot, mergedCatalog) ??
-      Object.values(mergedCatalog).find((i) => i.slot === slot)?.id;
+      itemId ? toCanonicalId(itemId) :
+        (() => {
+          const items = Object.values(mergedCatalogL).filter(i => i.slot === slot);
+          const score = (it: WearableItem) => {
+            const s = `${it.id} ${it.name ?? ""}`.toLowerCase();
+            return (s.includes("blank") || s.includes("basic") || s.includes("regular") || s.includes("default") || s.endsWith(".null")) ? 0 : 1;
+          };
+          const pick = items.sort((a,b)=>score(a)-score(b))[0];
+          return pick ? toCanonicalId(pick.id) : undefined;
+        })();
+
     await inv.apply({ equip: { [slot]: nextId }, reason: itemId ? "wardrobe:equip" : "wardrobe:unequip" });
-    // 헤더/다른 페이지에 즉시 반영
-    window.dispatchEvent(new CustomEvent("inv:changed"));
+    window.dispatchEvent(new CustomEvent("inv:changed"));       // 다른 화면 즉시 갱신
     setInvState(await inv.load() as any);
   }
 
@@ -220,7 +261,6 @@ export default function Wardrobe() {
       {/* 상단: 프리뷰 */}
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="aspect-square rounded-xl bg-slate-900/50 border border-white/10 relative overflow-hidden">
-          {/* 간단 미리보기: 레이어 스택 */}
           {layers.map((L) => (
             <div key={`${L.slot}:${L.id}`} className="absolute inset-0 flex items-center justify-center">
               {L.src ? (
@@ -274,7 +314,7 @@ export default function Wardrobe() {
               onChange={(e) => setQ(e.target.value)}
             />
 
-            {/* 보유만 보기 */}
+            {/* 보유만 보기 (장착 중 포함) */}
             <label className="flex items-center gap-2 px-2 py-2 rounded bg-slate-800">
               <input
                 type="checkbox"
@@ -303,8 +343,7 @@ export default function Wardrobe() {
 
           {/* 현재 장착 뱃지 */}
           <div className="mt-2 text-sm opacity-80">
-            현재 {SLOT_LABEL[activeSlot]}:{" "}
-            <b>{equippedId ?? "없음(기본)"}</b>
+            현재 {SLOT_LABEL[activeSlot]}: <b>{equippedId ?? "없음(기본)"}</b>
           </div>
         </div>
       </div>
@@ -312,7 +351,7 @@ export default function Wardrobe() {
       {/* 목록: 카드 그리드 */}
       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {list.map((i) => {
-          const owned = ownedSet.has(i.id);
+          const owned = ownedPlusEquippedL.has(toL(i.id));
           const selected = equippedId === i.id;
           return (
             <button
@@ -338,7 +377,11 @@ export default function Wardrobe() {
               <div className="mt-2 text-xs">
                 <div className="font-medium truncate">{i.name ?? i.id}</div>
                 <div className="opacity-60">{SLOT_LABEL[i.slot] ?? i.slot}</div>
-                {owned && <div className="mt-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-emerald-600/30 text-emerald-200">보유</div>}
+                {owned && (
+                  <div className="mt-1 inline-block text-[10px] px-1.5 py-0.5 rounded bg-emerald-600/30 text-emerald-200">
+                    보유
+                  </div>
+                )}
               </div>
             </button>
           );
