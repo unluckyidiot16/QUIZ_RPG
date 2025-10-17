@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { sb } from '../sb';
+import { sb } from '../core/sb';
 
 type Row = {
   run_id: string; user_id: string; nickname: string;

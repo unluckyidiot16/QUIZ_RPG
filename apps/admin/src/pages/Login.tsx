@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { sb } from '../sb';
+import { sb } from '../core/sb';
 
 export default function Login() {
   const [email, setEmail] = useState('');
