@@ -63,5 +63,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          packageManager: npm            # ← pnpm 말고 npm로 wrangler 설치
+          wranglerVersion: '3'           # (선택) 버전 고정
           # Change the project name to your actual Cloudflare Pages project
           command: pages deploy apps/student/dist --project-name=quiz-rpg
