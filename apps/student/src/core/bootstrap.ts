@@ -1,116 +1,196 @@
 // apps/student/src/core/bootstrap.ts
-// 첫 실행 시 초기 장착/보유 세팅:
-// - 시트/카탈로그의 active === true 항목을 "슬롯별로 0~1개" 사용
-// - 슬롯별 active 항목이 없으면 blank/basic/regular/default/.null 휴리스틱으로 폴백
-// - 이미 장착 상태가 있으면 아무 것도 하지 않음
-// - 적용 후 inv:changed 이벤트 브로드캐스트
+// 최초 1회 서버 동기화 + 기본 인벤토리 세팅 + 내부 큐/프루프 준비
 
-import { LocalInventoryGateway } from "./inventory.local";
-import { loadWearablesCatalog } from "./wearable.catalog";
-import type { Slot, WearableItem } from "./wearable.types";
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const SLOTS: Slot[] = [
-  "Hair",
-  "Hat",
-  "Clothes",
-  "BodySuit",
-  "Pants",
-  "Shoes",
-  "Sleeves",
-  "Necklace",
-  "Scarf",
-  "Bowtie",
-  "Bag",
-  "Body",
-  "Face",
-];
+// === 타입(필요 슬롯만 남겨 사용) ===
+export type Slot =
+  | 'body'
+  | 'eyes'
+  | 'mouth'
+  | 'frame'
+  | 'hat'
+  | 'badge'
+  | 'bg';
 
-const toL = (s?: string) => (s ?? "").toLowerCase();
+export type Equip = Partial<Record<Slot, string>>;
 
-function pickDefaultId(slot: Slot, cat: Record<string, WearableItem>): string | undefined {
-  const items = Object.values(cat).filter((i) => i.slot === slot);
-  const score = (it: WearableItem) => {
-    const s = `${it.id} ${it.name ?? ""}`.toLowerCase();
-    // 기본(없음/무채색) 스킨을 더 낮은 점수로 우선 선택
-    if (
-      s.includes("blank") ||
-      s.includes("basic") ||
-      s.includes("regular") ||
-      s.includes("default") ||
-      s.endsWith(".null") ||
-      s.includes("없음")
-    )
-      return 0;
-    return 1;
-  };
-  return items.sort((a, b) => score(a) - score(b))[0]?.id;
+export type WearableItem = {
+  id: string;
+  slot: Slot;
+  name?: string;
+  src: string;
+  z?: number;
+  default?: boolean;
+  isDefault?: boolean;
+  rarity?: string;
+};
+
+export type CatalogMap = Record<string, WearableItem>;
+export type InventoryState = {
+  equipped?: Equip;
+  // 필요한 필드 있으면 추가
+};
+
+let _booting = false;
+let _booted = false;
+
+function getSb(): SupabaseClient {
+  const url = import.meta.env.VITE_SUPABASE_URL as string;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+  if (!url || !key) throw new Error('Missing Supabase env (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)');
+  return createClient(url, key);
 }
 
-export async function bootstrapFirstRun(): Promise<void> {
-  const inv = new LocalInventoryGateway();
-  const s = await inv.load();
+// ---- 카탈로그 로드(프로젝트 기존 로더 대체/호출) ----
+async function loadCatalog(): Promise<CatalogMap> {
+  // 프로젝트의 기존 구현이 있으면 그걸 임포트해서 사용하세요.
+  // 여기서는 공개 정적 JSON 경로 기준 예시:
+  const res = await fetch('/data/catalog.json').catch(() => null);
+  if (!res || !res.ok) return {};
+  const arr = (await res.json()) as WearableItem[];
+  const map: CatalogMap = {};
+  for (const it of arr) map[it.id] = it;
+  return map;
+}
 
-  // 이미 초기화되어 장착된 내역이 있으면 종료
-  if (s && s.equipped && Object.keys(s.equipped).length > 0) return;
+// ---- 기본 아이템 선택 ----
+function pickDefaultId(catalog: CatalogMap, slot: Slot) {
+  const items = Object.values(catalog).filter(i => i.slot === slot);
+  return (
+    items.find(i => i.default || i.isDefault)?.id ??
+    items.find(i => i.rarity === 'common')?.id ??
+    items[0]?.id
+  );
+}
 
-  // 카탈로그 로딩(맵/배열 모두 대응: wearable.catalog 가 normalize 하므로 맵 기준으로 취급)
-  const catAny = await loadWearablesCatalog();
-  const cat: Record<string, WearableItem> = Array.isArray(catAny)
-    ? Object.fromEntries(
-      (catAny as WearableItem[]).filter(Boolean).map((it) => [it.id, it])
-    )
-    : (catAny as Record<string, WearableItem>);
-
-  // 1) active === true 를 슬롯별로 1개만 채택
-  const activeBySlot = new Map<Slot, string>();
-  for (const it of Object.values(cat)) {
-    const slot = it?.slot as Slot | undefined;
-    if (!slot) continue;
-    // 시트/JSON에서 active가 true일 때만 초기 장착 대상으로 사용
-    if ((it as any).active === true) {
-      if (!activeBySlot.has(slot)) {
-        activeBySlot.set(slot, it.id);
-      } else {
-        // 중복이면 첫 항목 유지 + 경고
-        // (중복을 허용하되, 동작은 예측 가능하게)
-        console.warn(
-          "[bootstrap] duplicate active for slot:",
-          slot,
-          "keep=",
-          activeBySlot.get(slot),
-          "ignore=",
-          it.id
-        );
-      }
-    }
+function makeDefaultEquip(catalog: CatalogMap): Equip {
+  const slots: Slot[] = ['body', 'eyes', 'mouth', 'frame', 'hat', 'badge', 'bg'];
+  const eq: Equip = {};
+  for (const s of slots) {
+    const id = pickDefaultId(catalog, s);
+    if (id) eq[s] = id;
   }
+  return eq;
+}
 
-  // 2) nextEquip/owned 구성: active 우선, 없으면 휴리스틱 폴백
-  const nextEquip: Partial<Record<Slot, string>> = {};
-  const ownedSet = new Set<string>();
+// ---- 로컬 스토리지 Fallback ----
+const LS_KEY = 'qrpg.inv.v2';
 
-  for (const slot of SLOTS) {
-    const id = activeBySlot.get(slot) ?? pickDefaultId(slot, cat);
-    if (id) {
-      nextEquip[slot] = id;
-      ownedSet.add(id);
-    }
-  }
-
-  // 장착할 항목이 없다면 종료
-  if (Object.keys(nextEquip).length === 0) return;
-
-  // 3) 적용: 장착 + 보유 추가
-  await inv.apply({
-    equip: (nextEquip as any),
-    cosmeticsAdd: Array.from(ownedSet),
-    reason: "seed:first-run",
-  });
-
-  // 4) 다른 화면(옷장/가챠 등) 갱신
+function loadInvLocal(): InventoryState | null {
   try {
-    window.dispatchEvent(new CustomEvent("inv:changed"));
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
   } catch {
-    // SSR/테스트 등 window 미존재 환경은 무시
+    return null;
   }
+}
+function saveInvLocal(inv: InventoryState) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(inv));
+  } catch {}
+}
+
+// ---- 서버(슈파베이스) 인벤토리 (테이블명은 필요시 수정) ----
+async function loadInvServer(sb: SupabaseClient): Promise<InventoryState | null> {
+  try {
+    const { data: session } = await sb.auth.getSession();
+    const uid = session?.session?.user?.id;
+    if (!uid) return null;
+
+    // 예시: inventories 테이블에 user_id, data(JSON) 컬럼이 있다고 가정
+    const { data, error } = await sb
+      .from('inventories')
+      .select('data')
+      .eq('user_id', uid)
+      .single();
+    if (error) return null;
+    return (data?.data ?? null) as InventoryState | null;
+  } catch {
+    return null;
+  }
+}
+
+async function saveInvServer(sb: SupabaseClient, inv: InventoryState): Promise<boolean> {
+  try {
+    const { data: session } = await sb.auth.getSession();
+    const uid = session?.session?.user?.id;
+    if (!uid) return false;
+
+    const { error } = await sb
+      .from('inventories')
+      .upsert({ user_id: uid, data: inv }, { onConflict: 'user_id' });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// ---- Auth 보장(익명 로그인) ----
+async function ensureAuth(sb: SupabaseClient) {
+  const { data } = await sb.auth.getSession();
+  if (data.session) return;
+  // supabase-js v2.7+ 익명 로그인 지원 (2.75.0 사용 로그 확인됨)
+  const { error } = await sb.auth.signInAnonymously();
+  if (error) throw error;
+}
+
+// ---- (선택) 전투에서 하던 초기화 미리 실행 ----
+async function initProofOrQueues() {
+  // 전투 진입시 1회 하던 초기화가 있다면 이곳으로 이동 (안전하게 no-op)
+  // ex) await proof.init(); await queue.init();
+}
+
+// ---- 부트스트랩 본체 ----
+export async function bootstrapApp(): Promise<void> {
+  if (_booted || _booting) return;
+  _booting = true;
+
+  try {
+    const sb = getSb();
+    await ensureAuth(sb);
+
+    // 카탈로그/인벤토리 로드
+    const [catalog, invServer, invLocal] = await Promise.all([
+      loadCatalog(),
+      loadInvServer(sb),
+      Promise.resolve(loadInvLocal()),
+    ]);
+
+    // 우선순위: 서버 > 로컬 > 빈값
+    let inv: InventoryState = invServer ?? invLocal ?? {};
+
+    // 기본 착용 보장
+    const needs = !inv?.equipped || Object.keys(inv.equipped!).length === 0;
+    if (needs) {
+      inv = { ...inv, equipped: makeDefaultEquip(catalog) };
+    }
+
+    // 저장: 서버 시도 → 실패 시 로컬
+    const ok = await saveInvServer(sb, inv);
+    if (!ok) saveInvLocal(inv);
+
+    // (선택) 프로필 초기 마킹
+    try {
+      const { data: session } = await sb.auth.getSession();
+      const uid = session?.session?.user?.id;
+      if (uid) {
+        await sb.from('profiles').upsert({ user_id: uid, init_done: true }, { onConflict: 'user_id' });
+      }
+    } catch {
+      /* ignore */
+    }
+
+    await initProofOrQueues();
+    _booted = true;
+  } finally {
+    _booting = false;
+  }
+}
+
+// === 라우터에서 쓰기 좋게 기존 API도 내보내기 ===
+export async function bootstrapFirstRun() {
+  // 기존 파일에서 이 함수를 이미 사용 중이었으므로, 내부에서 bootstrapApp을 호출
+  await bootstrapApp();
 }
