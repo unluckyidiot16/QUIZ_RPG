@@ -20,26 +20,12 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer2_BodySuit/Layer2_BodySuit_Null.png",
     "rarity": "common"
   },
-  "bodysuit.blank1": {
-    "id": "bodysuit.blank1",
-    "name": "몸통 [하양]",
-    "slot": "BodySuit",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer2_BodySuit/Layer2_BodySuit_Blank1.png",
-    "rarity": "uncommon"
-  },
   "pants.null": {
     "id": "pants.null",
     "name": "없음",
     "slot": "Pants",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer3_Pants/Layer3_Pants_Null.png",
     "rarity": "common"
-  },
-  "pants.blank1": {
-    "id": "pants.blank1",
-    "name": "바지 [하양]",
-    "slot": "Pants",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer3_Pants/Layer3_Pants_Blank1.png",
-    "rarity": "uncommon"
   },
   "shoes.null": {
     "id": "shoes.null",
@@ -48,33 +34,12 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer4_Shoes/Layer4_Shoes_Null.png",
     "rarity": "common"
   },
-  "shoes.blank1": {
-    "id": "shoes.blank1",
-    "name": "신발 [하양]",
-    "slot": "Shoes",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer4_Shoes/Layer4_Shoes_Blank1.png",
-    "rarity": "uncommon"
-  },
   "clothes.Null": {
     "id": "clothes.Null",
     "name": "없음",
     "slot": "Clothes",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer5_Clothes_Null.png",
     "rarity": "common"
-  },
-  "dress.blank1": {
-    "id": "dress.blank1",
-    "name": "드레스 [하양]",
-    "slot": "Clothes",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer5_Dress_Blank1.png",
-    "rarity": "uncommon"
-  },
-  "shirts.blank1": {
-    "id": "shirts.blank1",
-    "name": "셔츠 [하양]",
-    "slot": "Clothes",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer5_Shirt_Blank1.png",
-    "rarity": "uncommon"
   },
   "sleeve.Null": {
     "id": "sleeve.Null",
@@ -83,26 +48,12 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer6_Sleeves/Layer6_Sleeves_Null.png",
     "rarity": "common"
   },
-  "sleeve.blank1": {
-    "id": "sleeve.blank1",
-    "name": "소매 [하양]",
-    "slot": "Sleeves",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer6_Sleeves/Layer6_Sleeves_Blank1.png",
-    "rarity": "uncommon"
-  },
   "necklace.Null": {
     "id": "necklace.Null",
     "name": "없음",
     "slot": "Necklace",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer7_Necklace/Layer7_Necklace_Null.png",
     "rarity": "common"
-  },
-  "necklace.copper1": {
-    "id": "necklace.copper1",
-    "name": "목걸이 [구리]",
-    "slot": "Necklace",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer7_Necklace/Layer7_Necklace_Copper1.png",
-    "rarity": "epic"
   },
   "bag.Null": {
     "id": "bag.Null",
@@ -111,26 +62,12 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer8_Bag/Layer8_Bag_Null.png",
     "rarity": "common"
   },
-  "bag.blank1": {
-    "id": "bag.blank1",
-    "name": "가방 [하양]",
-    "slot": "Bag",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer8_Bag/Layer8_Bag_Blank1.png",
-    "rarity": "rare"
-  },
   "scaf.Null": {
     "id": "scaf.Null",
     "name": "없음",
     "slot": "Scarf",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer9_Scarf/Layer9_Scarf_Null.png",
     "rarity": "common"
-  },
-  "scaf.blank1": {
-    "id": "scaf.blank1",
-    "name": "목도리 [하양]",
-    "slot": "Scarf",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer9_Scarf/Layer9_Scarf_Blank1.png",
-    "rarity": "epic"
   },
   "bowtie.Null": {
     "id": "bowtie.Null",
@@ -139,13 +76,6 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer10_Bowtie/Layer10_Bowtie_Null.png",
     "rarity": "common"
   },
-  "bowtie.blank1": {
-    "id": "bowtie.blank1",
-    "name": "넥타이 [하양]",
-    "slot": "Bowtie",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer10_Bowtie/Layer10_Bowtie_Blank1.png",
-    "rarity": "rare"
-  },
   "hair.Null": {
     "id": "hair.Null",
     "name": "없음",
@@ -153,25 +83,11 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer11_Hair/Layer11_Hair_Null.png",
     "rarity": "common"
   },
-  "bunhair.blank1": {
-    "id": "bunhair.blank1",
-    "name": "묶은 머리 [하양]",
-    "slot": "Hair",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer11_Hair/Layer11_BunHair_Blank1.png",
-    "rarity": "common"
-  },
   "Hat.Null": {
     "id": "Hat.Null",
     "name": "없음",
-    "slot": "Clothes",
+    "slot": "Hat",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer12_Hat_Null.png",
     "rarity": "common"
-  },
-  "bow.blank1": {
-    "id": "bow.blank1",
-    "name": "리본 [하양]",
-    "slot": "Hat",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer12_Hat/Layer12_Bow_Blank1.png",
-    "rarity": "legendary"
   }
 }
