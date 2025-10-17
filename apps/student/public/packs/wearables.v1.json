@@ -62,8 +62,8 @@
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer8_Bag/Layer8_Bag_Null.png",
     "rarity": "common"
   },
-  "scaf.Null": {
-    "id": "scaf.Null",
+  "scarf.Null": {
+    "id": "scarf.Null",
     "name": "없음",
     "slot": "Scarf",
     "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer9_Scarf/Layer9_Scarf_Null.png",
@@ -87,7 +87,7 @@
     "id": "Hat.Null",
     "name": "없음",
     "slot": "Hat",
-    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer5_Clothes/Layer12_Hat_Null.png",
+    "src": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Layer12_Hat/Layer12_Hat_Null.png",
     "rarity": "common"
   }
 }
