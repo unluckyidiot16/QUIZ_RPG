@@ -8,7 +8,7 @@
     { "cosmeticId": "bag.blank1",          "weight": 20, "rarity": "R"  },
     { "cosmeticId": "bowtie.blank1",       "weight": 20, "rarity": "R"  },
     { "cosmeticId": "necklace.copper1",    "weight":  8, "rarity": "SR" },
-    { "cosmeticId": "scaf.blank1",         "weight":  8, "rarity": "SR" },
+    { "cosmeticId": "scarf.blank1",         "weight":  8, "rarity": "SR" },
     { "cosmeticId": "bow.blank1",          "weight":  2, "rarity": "SSR"}
   ]
 }
