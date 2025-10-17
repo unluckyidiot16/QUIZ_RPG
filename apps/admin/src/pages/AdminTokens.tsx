@@ -11,13 +11,20 @@ type TokenRow = {
   qr: string; // dataURL
 };
 
+const STUDENT_BASE =
+  (import.meta as any).env?.VITE_STUDENT_BASE_URL ||
+  (typeof window !== 'undefined' ? window.location.origin : '');
+
 export default function AdminTokens() {
   const [count, setCount] = useState(12);
   const [ttlMin, setTtlMin] = useState(120);     // 만료(분)
   const [prefix, setPrefix] = useState('3반-');  // 레이블 프리픽스
   const [rows, setRows] = useState<TokenRow[]>([]);
-  const baseUrl = useMemo(() => `${location.origin}/token`, []);
-
+  const baseUrl = useMemo(() => {
+    const base = (STUDENT_BASE || '').replace(/\/+$/, '');
+    return `${base}/token`;
+  }, []);
+  
   const issue = async () => {
     const expires = new Date(Date.now() + ttlMin * 60_000).toISOString();
     const { data, error } = await sb.rpc('issue_qr_tokens', {
@@ -32,7 +39,7 @@ export default function AdminTokens() {
     for (let i = 0; i < data.length; i++) {
       const tok = data[i] as { id:string; status:'issued'|'used'|'revoked'; expires_at:string };
       const label = `${prefix}${String(i+1).padStart(2,'0')}`;
-      const url = `${baseUrl}/${tok.id}`;
+      const url = `${baseUrl}/${tok.id}`;   // ← 학생앱 도메인으로 고정됨
       const qr = await QRCode.toDataURL(url, { margin: 1, scale: 6 });
       out.push({ id: tok.id, status: tok.status, expires_at: tok.expires_at, url, label, qr });
     }
