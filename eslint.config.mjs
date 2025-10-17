@@ -1,4 +1,4 @@
-// eslint.config.js (flat config)
+// eslint.config.mjs
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
@@ -9,7 +9,7 @@ export default [
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
-      parserOptions: { ecmaVersion: 2022, sourceType: 'module', project: false },
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
     },
     rules: {
       'no-unused-vars': 'warn',

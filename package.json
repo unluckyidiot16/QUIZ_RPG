@@ -17,14 +17,16 @@
     "sri:admin": "DIST_DIR=apps/admin/dist tsx scripts/postbuild-sri.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^9.37.0",
     "@types/node": "^20.11.16",
     "@typescript-eslint/eslint-plugin": "^8.0.1",
     "@typescript-eslint/parser": "^8.0.1",
-    "eslint": "^9.9.0",
+    "eslint": "^9.37.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.9",
     "tsx": "^4.16.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.46.1"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": [
@@ -33,5 +35,6 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0"
-  }
+  },
+  
 }

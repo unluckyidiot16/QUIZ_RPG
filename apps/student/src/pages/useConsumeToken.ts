@@ -39,11 +39,8 @@ export async function bootstrapFromToken() {
     localStorage.setItem('student_user_id', userId);
 
     // 2) 게이트 확인
-    const gate = await sb.rpc('get_access_gate', {
-      p_user_id: userId,                       // ⚠️ 꼭 포함되어야 함
-      p_user_agent: navigator.userAgent,
-      p_ip: null
-    });
+    const gate = await sb.rpc('get_access_gate_simple', { p_user_id: userId });
+
     if (gate.error) {
       return {
         consumed:true,
