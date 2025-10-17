@@ -3,32 +3,33 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { makeServices } from '../core/service.locator';
 import { loadGachaPool } from '../core/packs';
+import { loadWearablesCatalog } from '../core/wearable.catalog';
 import type { GachaPoolDef } from '../core/items';
 import { newIdempotencyKey } from '../shared/lib/idempotency';
 
-type Wearable = { id: string; name?: string; slot?: string; src?: string; rarity?: string };
-type CatalogMap = Record<string, Wearable>;
-
-// 🔧 wearables.v1.json은 "id -> item" 맵 구조입니다.
-async function loadCatalogMap(): Promise<CatalogMap> {
-  const res = await fetch('/packs/wearables.v1.json');
-  const raw = await res.json();
-  // 맵이면 그대로, 배열/다른 형태면 아이디 키로 변환
-  if (raw && !Array.isArray(raw) && typeof raw === 'object') {
-    return raw as CatalogMap;
-  }
-  const arr: Wearable[] = Array.isArray(raw) ? raw : (raw.items ?? []);
-  const map: CatalogMap = {};
-  for (const it of arr) map[it.id] = it;
-  return map;
-}
+const prefix = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+const normalizeSrc = (src?: string) => {
+  if (!src) return undefined;
+  if (/^https?:\/\//i.test(src)) return src;
+  return src.startsWith("/") ? `${prefix}${src}` : `${prefix}/${src}`;
+};
 
 export default function Gacha(){
   const { inv, gacha } = useMemo(() => makeServices(), []);
   const [pool, setPool] = useState<GachaPoolDef| null>(null);
   const [coins, setCoins] = useState<number>(0);
   const [err, setErr] = useState<string | null>(null);
-  const [cat, setCat] = useState<CatalogMap>({});
+  const [cat, setCat] = useState<Record<string, any>>({});
+  const catL = useMemo(() => {
+    const m: Record<string, any> = {};
+    if (Array.isArray(cat)) {
+      for (const it of cat) if (it?.id) m[it.id.toLowerCase()] = it;
+    } else {
+      for (const [id, it] of Object.entries(cat as any)) m[id.toLowerCase()] = it;
+    }
+    return m;
+    }, [cat]);
+  const toCanonicalId = (id: string) => (cat[id] ?? catL[id.toLowerCase()] ?? { id }).id as string;
   const [results, setResults] = useState<string[]>([]); // 최근 획득 아이템 id[]
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export default function Gacha(){
       const s = await inv.load();
       setCoins(s.coins);
       try { setPool(await loadGachaPool()); } catch {}
-      try { setCat(await loadCatalogMap()); } catch {}
+      try { setCat(await loadWearablesCatalog()); } catch {}
     })();
   }, []);
 
@@ -47,14 +48,15 @@ export default function Gacha(){
       const res = await gacha.open(pool, n, { idempotencyKey: newIdempotencyKey('gacha') });
 
       // ⬇️ 핵심: 소유 인벤토리에 '획득' 반영 (중복은 내부에서 무시되도록 설계)
-      await inv.apply({ cosmeticsAdd: res.results, reason: 'gacha:open' });
+      const fixed = res.results.map(toCanonicalId);
+      await inv.apply({ cosmeticsAdd: fixed, reason: 'gacha:open' });
 
       // 코인 최신화
       const s = await inv.load();
       setCoins(s.coins);
 
       // 결과 카드 그리드 표시
-      setResults(prev => [...res.results, ...prev].slice(0, 50));
+      setResults(prev => [...fixed, ...prev].slice(0, 50));
 
       // 옷장 등에서 즉시 반영되도록 이벤트 브로드캐스트(간단 버스)
       window.dispatchEvent(new CustomEvent('inv:changed'));
@@ -92,12 +94,12 @@ export default function Gacha(){
       {/* 결과: 박스형 카드 그리드 */}
       <div className="mt-6 grid grid-cols-3 gap-3">
         {results.map((id, i) => {
-          const it = cat[id];
+          const it = cat[id] ?? catL[id.toLowerCase()];
           return (
             <div key={i} className="border border-white/10 rounded-xl p-2 flex flex-col items-center">
               <div className="w-20 h-20 bg-white/5 rounded-lg overflow-hidden flex items-center justify-center">
                 {it?.src
-                  ? <img src={it.src} alt={it?.name ?? id} className="w-full h-full object-contain" />
+                  ? <img src={normalizeSrc(it.src)} alt={it?.name ?? id} className="w-full h-full object-contain" />
                   : <span className="text-xs opacity-60">이미지 없음</span>}
               </div>
               <div className="mt-2 text-xs text-center leading-tight">

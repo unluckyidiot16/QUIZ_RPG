@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { loadWearablesCatalog } from "../core/wearable.catalog";
 import { Link } from "react-router-dom";
 import { makeServices } from "../core/service.locator";
 
@@ -71,6 +72,13 @@ async function loadCatalogMap(): Promise<Record<string, WearableItem>> {
   return map;
 }
 
+const prefix = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+const normalizeSrc = (src?: string) => {
+  if (!src) return undefined;
+  if (/^https?:\/\//i.test(src)) return src;
+  return src.startsWith("/") ? `${prefix}${src}` : `${prefix}/${src}`;
+};
+
 /** ─ Utils ─ */
 const toL = (s?: string) => (s ?? "").toLowerCase();
 function toIdArray(raw: any): string[] {
@@ -132,7 +140,7 @@ export default function Wardrobe() {
   useEffect(() => {
     (async () => {
       try {
-        const [s, cat] = await Promise.all([inv.load(), loadCatalogMap()]);
+        const [s, cat] = await Promise.all([inv.load(), loadWearablesCatalog()]);
         setInvState(s as any);
         setCatalog(cat);
       } catch {/* ignore */}
@@ -161,11 +169,15 @@ export default function Wardrobe() {
   }, [inv]);
 
   /** 정규화 카탈로그/보유/장착 */
-  const catalogByIdL = useMemo(() => {
-    const m: Record<string, WearableItem> = {};
-    for (const [id, it] of Object.entries(catalog)) m[toL(id)] = it;
-    return m;
-  }, [catalog]);
+   const catalogByIdL = useMemo(() => {
+       const m: Record<string, WearableItem> = {};
+       if (Array.isArray(catalog)) {
+           for (const it of catalog) if (it?.id) m[toL(it.id)] = it;
+         } else {
+           for (const [id, it] of Object.entries(catalog as any)) m[toL(id)] = it as WearableItem;
+         }
+       return m;
+     }, [catalog]);
   const getItemByAnyId = (id: string) => catalogByIdL[toL(id)];
   const toCanonicalId   = (id: string) => getItemByAnyId(id)?.id ?? id;
 
@@ -268,7 +280,7 @@ export default function Wardrobe() {
             <div key={`${L.slot}:${L.id}`} className="absolute inset-0 flex items-center justify-center">
               {L.src ? (
                 <img
-                  src={L.src}
+                  src={normalizeSrc(L.src)}
                   alt={L.name ?? L.id}
                   className="max-w-full max-h-full object-contain pointer-events-none select-none"
                   draggable={false}
@@ -354,7 +366,7 @@ export default function Wardrobe() {
               <div className="w-full aspect-square rounded-lg overflow-hidden bg-white/5 grid place-items-center relative">
                 {i.src ? (
                   <img
-                    src={i.src}
+                    src={normalizeSrc(i.src)}
                     alt={i.name ?? i.id}
                     className="max-w-full max-h-full object-contain pointer-events-none"
                     loading="lazy"
