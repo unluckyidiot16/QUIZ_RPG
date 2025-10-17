@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Login from './pages/Login';
 import Runs from './pages/Runs';
-import { sb } from './sb';
+import { sb } from './core/sb';
 import AdminTokens from './pages/AdminTokens';
 
 function Gate() {
