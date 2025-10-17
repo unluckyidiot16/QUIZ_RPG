@@ -16,7 +16,7 @@ import Codex from './pages/Codex';
 import TokenGatePage from './pages/TokenGatePage';
 import NotFound from './pages/NotFound';
 
-import { bootstrapApp } from './core/bootstrap'; // ✅ 바뀐 함수 사용
+import { bootstrapApp } from './core/bootstrap';
 
 const router = createBrowserRouter([
   { path: '/', element: <Main/> },
