@@ -1,14 +1,15 @@
 {
   "name": "quiz-rpg",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.18.3",
   "scripts": {
     "prepare": "husky install",
     "typecheck": "tsc -b",
+    "build": "pnpm -C apps/student build && pnpm -C apps/admin build",
+    "dev:student": "pnpm -C apps/student dev",
+    "dev:admin": "pnpm -C apps/admin dev",
     "lint": "eslint . --ext .ts,.tsx",
-    "build": "pnpm -r --filter ./apps/* run build",
-    "dev:student": "pnpm --filter @apps/student dev",
-    "dev:admin": "pnpm --filter @apps/admin dev",
     "manifest": "DIST_DIR=apps/student/dist tsx scripts/build-manifest.mjs",
     "sri": "DIST_DIR=apps/student/dist tsx scripts/postbuild-sri.mjs",
     "manifest:student": "DIST_DIR=apps/student/dist tsx scripts/build-manifest.mjs",
@@ -22,8 +23,11 @@
     "@typescript-eslint/eslint-plugin": "^8.0.1",
     "@typescript-eslint/parser": "^8.0.1",
     "eslint": "^9.37.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^16.4.0",
     "husky": "^9.0.11",
     "lint-staged": "^15.2.9",
+    "prettier": "^3.3.3",
     "tsx": "^4.16.2",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.46.1"
@@ -35,6 +39,5 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0"
-  },
-  
+  }
 }
