@@ -12,6 +12,7 @@ import Gacha from './pages/Gacha';
 import Inventory from './pages/Inventory';
 import Wardrobe from './pages/Wardrobe';
 import Codex from './pages/Codex';
+import { bootstrapFirstRun } from './core/bootstrap';
 
 const router = createBrowserRouter([
   { path: '/', element: <Main/> },
@@ -24,4 +25,5 @@ const router = createBrowserRouter([
   { path: '/codex', element: <Codex/> },
 ]);
 
+bootstrapFirstRun().catch(()=>{}); // 렌더를 막진 않고 백그라운드 시드
 createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);

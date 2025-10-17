@@ -46,6 +46,20 @@ export default function Gacha(){
       <ul className="mt-6 space-y-1">
         {log.map((x,i)=>(<li key={i} className="text-sm opacity-90">획득: {x}</li>))}
       </ul>
+      // src/pages/Gacha.tsx 일부
+      <div className="mt-4 flex gap-3">
+        <button className="px-3 py-2 bg-slate-700 rounded" onClick={()=>draw(1)}>1회</button>
+        <button className="px-3 py-2 bg-slate-700 rounded" onClick={()=>draw(10)}>10회</button>
+        {/* DEV: 테스트 코인 */}
+        <button
+          className="ml-auto px-3 py-2 bg-emerald-700 rounded"
+          onClick={async ()=>{
+            await inv.apply({ coinDelta: +100, reason: 'dev:grant' });
+            setCoins((await inv.load()).coins);
+          }}>
+          +100 코인(DEV)
+        </button>
+      </div>
     </div>
   );
 }
