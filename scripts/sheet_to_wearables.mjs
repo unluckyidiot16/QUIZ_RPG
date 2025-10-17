@@ -10,6 +10,49 @@ const normRarity = v => {
   const s = String(v ?? '').trim().toLowerCase();
   return RSET.has(s) ? s : undefined;
 };
+
+// ── add under existing const RSET/normRarity ──
+const RMAP = new Map([
+  ['n','common'], ['common','common'],
+  ['r','rare'],   ['rare','rare'],
+  ['sr','epic'],  ['epic','epic'],
+  ['ssr','legendary'], ['legendary','legendary'],
+  ['mythic','mythic'],
+]);
+const normRarity2 = v => {
+  const s = String(v ?? '').trim().toLowerCase();
+  return RMAP.get(s) || (RSET.has(s) ? s : undefined);
+};
+
+const SLOT_SYNONYM = new Map([
+  ['shirt','Clothes'], ['shirts','Clothes'], ['dress','Clothes'],
+  ['scaf','Scarf'],    ['scarf','Scarf'],
+  ['hair','Hair'], ['hat','Hat'], ['bow','Hat'],
+  ['bag','Bag'],   ['bowtie','Bowtie'], ['necklace','Necklace'],
+  ['pants','Pants'], ['shoes','Shoes'],
+  ['bodysuit','BodySuit'], ['sleeve','Sleeves'], ['sleeves','Sleeves'],
+  ['body','Body'], ['face','Face'], ['clothes','Clothes'],
+]);
+
+function inferSlotFromId(id='') {
+  const s = String(id).toLowerCase();
+  for (const [k, v] of SLOT_SYNONYM) {
+    if (s.startsWith(k + '.')) return v;
+  }
+  return undefined;
+}
+
+function canonSlot(slotRaw, id) {
+  const raw = String(slotRaw ?? '').trim();
+  if (ALLOWED_SLOTS.has(raw)) return raw;
+  const syn = SLOT_SYNONYM.get(raw.toLowerCase());
+  if (syn && ALLOWED_SLOTS.has(syn)) return syn;
+  const inf = inferSlotFromId(id);
+  if (inf && ALLOWED_SLOTS.has(inf)) return inf;
+  return undefined;
+}
+
+
 const SHEET_ID   = process.env.SHEET_ID;
 const SHEET_NAME = process.env.SHEET_NAME || '';
 const ASSETS_ROOT = (process.env.ASSETS_ROOT || 'https://unluckyidiot16.github.io/assets-common/QuizRpg/').replace(/\/+$/,'') + '/';
@@ -80,14 +123,36 @@ async function main(){
 
     const id   = String(get(r,'id') ?? '').trim();
     const name = String((get(r,'name') ?? id) || '').trim();
-    const slot = String(get(r,'slot') ?? '').trim();
-    let   pth  = String(get(r,'path') ?? '').trim();
+    // slot 유연화(동의어/추론 포함)
+    const slot = canonSlot(get(r,'slot'), id);
+    // path, src, image, url, thumbnail, file, images[0], assets[0] 등 폭넓게 지원
+    const candidates = [
+      get(r,'path'), get(r,'src'), get(r,'image'), get(r,'url'),
+      get(r,'thumbnail'), get(r,'file')
+    ];
+    // 배열형 열(images/assets)에 첫 값이 들어오는 경우
+    const imagesCell = get(r,'images');   // "a|b|c" 처럼 들어오면 첫 값
+    const assetsCell = get(r,'assets');
+    if (imagesCell && typeof imagesCell === 'string') {
+      candidates.push(imagesCell.split(/[|,]/)[0]);
+    }
+    if (assetsCell && typeof assetsCell === 'string') {
+      candidates.push(assetsCell.split(/[|,]/)[0]);
+    }
+    let pth = '';
+    for (const v of candidates) {
+      const s = String(v ?? '').trim();
+      if (s) { pth = s; break; }
+    }
 
-    if (!id || !slot || !pth) { skipped++; continue; }
-    if (!ALLOWED_SLOTS.has(slot)) { console.warn(`[wearables] skip invalid slot: ${slot} @${id}`); skipped++; continue; }
+    if (!id)  { console.warn(`[wearables] skip: missing id`); skipped++; continue; }
+    if (!slot){ console.warn(`[wearables] skip: missing/invalid slot @${id}`); skipped++; continue; }
+    if (!pth) { console.warn(`[wearables] skip: missing path/src @${id}`); skipped++; continue; }
 
     const isAbs = /^https?:\/\//i.test(pth);
-    const src = isAbs ? pth : joinUrl(ASSETS_ROOT, pth);
+        // 앞뒤 슬래시 정리
+    const cleaned = pth.replace(/^\.?\/*/, '');
+    const src = isAbs ? pth : joinUrl(ASSETS_ROOT, cleaned);
 
     const opacity = toNum(get(r,'opacity'));
     const scale   = toNum(get(r,'scale'));
@@ -97,7 +162,7 @@ async function main(){
     const aRows   = toNum(get(r,'atlasrows'));
     const aFrames = toNum(get(r,'atlasframes'));
     const aFps    = toNum(get(r,'atlasfps'));
-    const rarity  = normRarity(get(r,'rarity'));
+    const rarity  = normRarity2(get(r,'rarity'));
 
     
     const item = {
