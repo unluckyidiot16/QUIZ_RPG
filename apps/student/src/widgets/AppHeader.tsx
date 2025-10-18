@@ -1,8 +1,6 @@
 // src/widgets/AppHeader.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { makeServices } from '../core/service.locator';
-console.warn("[AppHeader] MOUNT @", location.pathname, "time:", Date.now());
-
 
 type Slot =
   | 'Body' | 'Face' | 'BodySuit' | 'Pants' | 'Shoes' | 'Clothes' | 'Sleeves'

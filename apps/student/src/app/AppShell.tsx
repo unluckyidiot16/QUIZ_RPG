@@ -13,12 +13,9 @@ function shouldShowHeader(pathname: string) {
 }
 
 export default function AppShell() {
-  const { pathname } = useLocation();
-  const showHeader = shouldShowHeader(pathname);
-
   return (
     <div className="min-h-dvh grid grid-rows-[auto_1fr] bg-slate-950 text-white">
-      {showHeader && <AppHeader />}
+      <AppHeader />
       <main className="overflow-auto">
         <Outlet />
       </main>
