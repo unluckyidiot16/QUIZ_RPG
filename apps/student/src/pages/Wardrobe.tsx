@@ -92,7 +92,7 @@ export default function Wardrobe() {
 
       {/* 고정 크기 미리보기 */}
       <div className="mt-4 grid place-items-center">
-        <div className="w-[280px] h-[280px] md:w-[320px] md:h-[320px] rounded-xl bg-slate-900/50 border border-white/10 relative overflow-hidden">
+        <div className="w-[140px] h-[140px] md:w-[160px] md:h-[160px] rounded-xl bg-slate-900/50 border border-white/10 relative overflow-hidden">
           {previewLayers.map(L => (
             <img key={`${L.slot}:${L.id}`} src={L.src} alt="" className="absolute inset-0 object-contain max-w-full max-h-full pointer-events-none select-none" style={{ zIndex:L.z }} />
           ))}
