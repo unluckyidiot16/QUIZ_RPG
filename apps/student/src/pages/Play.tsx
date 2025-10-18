@@ -4,8 +4,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // ⚠️ Result.tsx가 '../api'를 쓰고 있으니 여기도 동일 경로로 맞춰 드롭 인
 import * as api from '../api';
-import AppHeader from '../widgets/AppHeader';
-
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
 type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
@@ -228,7 +226,6 @@ export default function Play() {
 
   return (
     <>
-      <AppHeader />
     <div className="p-6 max-w-xl mx-auto space-y-4">
       {/* 진행도 */}
       <div className="h-2 bg-slate-800 rounded overflow-hidden">

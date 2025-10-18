@@ -1,4 +1,3 @@
-// apps/student/src/main.tsx
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
@@ -21,9 +20,8 @@ import NotFound from './pages/NotFound';
 import { bootstrapApp } from './core/bootstrap';
 
 const router = createBrowserRouter([
-  // ✅ 공통 헤더가 필요한 라우트 묶음
   {
-    element: <AppShell />,
+    element: <AppShell />,                 // ✅ 헤더는 여기서만
     children: [
       { index: true, element: <Main/> },
       { path: '/lobby', element: <Lobby/> },
@@ -35,10 +33,8 @@ const router = createBrowserRouter([
       { path: '/codex', element: <Codex/> },
     ],
   },
-  // ✅ 토큰/접속 차단 등 "헤더 없이" 보여줄 라우트는 **바깥**에 둠
+  // ✅ 차단/토큰 화면은 헤더 없이
   { path: '/token/:id', element: <TokenGatePage/> },
-
-  // 404는 취향대로: 헤더 없이
   { path: '*', element: <NotFound /> },
 ]);
 
@@ -50,19 +46,9 @@ function AppGate({ children }: { children: React.ReactNode }) {
       finally { setReady(true); }
     })();
   }, []);
-  if (!ready) {
-    return (
-      <div className="grid place-items-center min-h-dvh">
-        초기 동기화 중…
-      </div>
-    );
-  }
+  if (!ready) return <div className="grid place-items-center min-h-dvh">초기 동기화 중…</div>;
   return <>{children}</>;
 }
 
 createRoot(document.getElementById('root')!)
-  .render(
-    <AppGate>
-      <RouterProvider router={router} />
-    </AppGate>
-  );
+  .render(<AppGate><RouterProvider router={router} /></AppGate>);

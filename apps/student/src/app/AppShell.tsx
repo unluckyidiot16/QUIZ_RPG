@@ -1,4 +1,3 @@
-// apps/student/src/app/AppShell.tsx
 import { Outlet } from "react-router-dom";
 import AppHeader from "../widgets/AppHeader";
 
