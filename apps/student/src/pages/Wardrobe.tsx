@@ -211,15 +211,15 @@ export default function Wardrobe() {
   }, [inv]);
 
   /** 정규화 카탈로그/보유/장착 */
-   const catalogByIdL = useMemo(() => {
-       const m: Record<string, WearableItem> = {};
-       if (Array.isArray(catalog)) {
-           for (const it of catalog) if (it?.id) m[toL(it.id)] = it;
-         } else {
-           for (const [id, it] of Object.entries(catalog as any)) m[toL(id)] = it as WearableItem;
-         }
-       return m;
-     }, [catalog]);
+  const catalogByIdL = useMemo(() => {
+    const m: Record<string, WearableItem> = {};
+    if (Array.isArray(catalog)) {
+      for (const it of catalog) if (it?.id) m[toL(it.id)] = it;
+    } else {
+      for (const [id, it] of Object.entries(catalog as any)) m[toL(id)] = it as WearableItem;
+    }
+    return m;
+  }, [catalog]);
   const getItemByAnyId = (id: string) => catalogByIdL[toL(id)];
   const toCanonicalId   = (id: string) => getItemByAnyId(id)?.id ?? id;
 
@@ -251,22 +251,22 @@ export default function Wardrobe() {
   /** 프리뷰 레이어: 정규 카탈로그 사용(원본 src 경로 유지) */
   const layers = useMemo(() => {
     const items: { id:string; slot:Slot; src?:string; name?:string; z:number }[] = [];
-        for (const slot of SLOTS) {
-            const id = equipped[slot];
-            if (!id) continue;
-            const it = getItemByAnyId(id);
-            items.push({ 
-                id,
-                slot,
-                src: pickSrc(it),
-                name: it?.name ?? id,
-                z: getZ(slot, it),
-              });
-          }
-        // 낮은 z가 먼저(아래), 높은 z가 나중(위)
-          items.sort((a,b) => a.z - b.z);
-        return items;
-      }, [equipped, catalogByIdL]);
+    for (const slot of SLOTS) {
+      const id = equipped[slot];
+      if (!id) continue;
+      const it = getItemByAnyId(id);
+      items.push({
+        id,
+        slot,
+        src: pickSrc(it),
+        name: it?.name ?? id,
+        z: getZ(slot, it),
+      });
+    }
+    // 낮은 z가 먼저(아래), 높은 z가 나중(위)
+    items.sort((a,b) => a.z - b.z);
+    return items;
+  }, [equipped, catalogByIdL]);
 
   /** 실제 보유한 아이템만(allItems) */
   const allItems = useMemo(
@@ -327,11 +327,11 @@ export default function Wardrobe() {
       <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="aspect-square rounded-xl bg-slate-900/50 border border-white/10 relative overflow-hidden">
           {layers.map((L) => (
-               <div
-                 key={`${L.slot}:${L.id}`}
-                 className="absolute inset-0 flex items-center justify-center"
-                 style={{ zIndex: L.z }}
-               >
+            <div
+              key={`${L.slot}:${L.id}`}
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ zIndex: L.z }}
+            >
               {L.src ? (
                 <img
                   src={normalizeSrc(L.src)}

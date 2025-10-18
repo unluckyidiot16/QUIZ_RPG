@@ -104,7 +104,7 @@ export default function AppHeader() {
 
   const layers = useMemo(() => toLayers(equipped, catalog), [equipped, catalog]);
   const hasLayers = layers.length > 0;
-  
+
   // 프리로드: 장착된 레이어 src만, 중복 제거
   useEffect(() => {
     if (!hasLayers) return;
