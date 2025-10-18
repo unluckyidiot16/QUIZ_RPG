@@ -1,155 +1,100 @@
-// apps/student/src/shared/ui/AvatarRenderer.tsx
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+// src/core/bootstrap.ts
+import { loadWearablesCatalog } from './wearable.catalog';
+import type { WearableItem, Slot } from './wearable.types';
+import { makeServices } from './service.locator';
+import { notifyInventoryChanged } from './inv.bus';
 
-export type Layer = {
-  id: string;
-  slot: string;              // 'body' | 'eyes' | ...
-  src: string;               // 이미지 URL (필수)
-  name?: string;
-  z: number;                 // 그리기 순서 (작을수록 먼저)
-};
+// 슬롯 우선순위(아래일수록 위에 그림)
+const SLOTS: Slot[] = [
+  'Body','Face','BodySuit','Pants','Shoes','Clothes','Sleeves',
+  'Bag','Necklace','Scarf','Bowtie','Hair','Hat'
+];
 
-type Props = {
-  layers: Layer[];
-  size?: number;             // 렌더 크기(px) – 기본 160
-  playing?: boolean;         // 애니메이션 루프 유지 여부 (없어도 동작)
-  pixelRatio?: number;       // 고해상도 캔버스 배율 (기본 devicePixelRatio)
-  corsMode?: 'none' | 'anonymous'; // 교차출처 이미지일 때 'anonymous' 권장
-};
+// 소문자 보조
+const toL = (s?: string) => (s ?? '').toLowerCase();
 
-type Loaded = { layer: Layer; img: HTMLImageElement };
+// 이미지 src 추출(스키마 다양성 대응)
+function pickSrc(it?: any): string | undefined {
+  const v =
+    it?.src ?? it?.image ?? it?.img ?? it?.renderSrc ?? it?.render ??
+    it?.thumbnail ?? it?.thumb ??
+    (Array.isArray(it?.images) ? it.images[0] : undefined) ??
+    (Array.isArray(it?.assets) ? it.assets[0] : undefined) ??
+    (typeof it?.file === 'string' ? it.file : undefined) ??
+    (typeof it?.url  === 'string' ? it.url  : undefined);
+  return typeof v === 'string' ? v : undefined;
+}
 
-export default function AvatarRenderer({
-                                         layers,
-                                         size = 160,
-                                         playing = false,
-                                         pixelRatio,
-                                         corsMode = 'none',
-                                       }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [loaded, setLoaded] = useState<Loaded[]>([]);
-  const rafRef = useRef<number | null>(null);
+// 기본(Null/Blank/Regular/Default) 휴리스틱
+function pickDefaultId(slot: Slot, catalog: Record<string, WearableItem>): string | undefined {
+  const items = Object.values(catalog).filter(i => i.slot === slot);
 
-  // z 오름차순 정렬(안전)
-  const sorted = useMemo(
-    () => [...(layers || [])].filter(l => !!l?.src).sort((a, b) => a.z - b.z),
-    [layers]
-  );
+  // 1) active === true 우선
+  const act = items.find(i => (i as any).active === true && pickSrc(i));
+  if (act) return act.id;
 
-  // 이미지 로드
-  useEffect(() => {
-    let cancelled = false;
-    setLoaded([]);
+  // 2) 이름/아이디 키워드 기반 폴백
+  const pref = (keys: string[]) =>
+    items.find(i => {
+      const id = toL(i.id);
+      const name = toL(i.name);
+      const has = (s: string) => keys.some(k => s.includes(k));
+      return pickSrc(i) && (has(id) || has(name));
+    })?.id;
 
-    async function loadAll() {
-      const entries = await Promise.all(
-        sorted.map(
-          (layer) =>
-            new Promise<Loaded | null>((resolve) => {
-              const img = new Image();
-              if (corsMode === 'anonymous') img.crossOrigin = 'anonymous';
-              // 이미지가 크면 해상도 향상
-              (img as any).decoding = 'async';
-              img.onload = () => resolve({ layer, img });
-              img.onerror = () => resolve(null);
-              img.src = layer.src;
-            })
-        )
-      );
+  // 슬롯별 추천 키워드
+  const kw: Record<Slot, string[]> = {
+    Body: ['blank','basic','default','white'],
+    Face: ['regular','basic','default','face'],
+    BodySuit: ['blank','basic','default'],
+    Pants: ['null','none','blank','basic','default'],
+    Shoes: ['null','none','blank','basic','default'],
+    Clothes: ['blank','basic','default','shirt','dress'],
+    Sleeves: ['blank','basic','default','sleeve'],
+    Bag: ['null','none','blank','basic','default','bag'],
+    Necklace: ['null','none','blank','basic','default','necklace'],
+    Scarf: ['null','none','blank','basic','default','scarf','scaf'],
+    Bowtie: ['null','none','blank','basic','default','bowtie'],
+    Hair: ['null','none','blank','basic','default','hair'],
+    Hat: ['null','none','blank','basic','default','hat'],
+    // 확장 슬롯이 있으면 추가
+  } as any;
 
-      if (!cancelled) {
-        setLoaded(entries.filter((e): e is Loaded => !!e));
-      }
+  const byKw = pref(kw[slot] ?? ['null','none','blank','regular','default','basic']);
+  if (byKw) return byKw;
+
+  // 3) 마지막 폴백: 아무거나 src 있는 첫 번째
+  const anyWithSrc = items.find(i => pickSrc(i))?.id;
+  return anyWithSrc;
+}
+
+/** 첫 실행 시, 기본 아이템 자동 장착 */
+export async function bootstrapFirstRun() {
+  const { inv } = makeServices();
+  const [state, catAny] = await Promise.all([inv.load(), loadWearablesCatalog()]);
+  const catalog: Record<string, WearableItem> = Array.isArray(catAny)
+    ? Object.fromEntries((catAny as WearableItem[]).map(it => [it.id, it]))
+    : (catAny as Record<string, WearableItem>);
+
+  const equipped = { ...(state.equipped as Record<string, string> ?? {}) };
+
+  // 슬롯별로 비어있으면 기본값 채우기
+  const equipPatch: Partial<Record<Slot, string>> = {};
+  for (const slot of SLOTS) {
+    if (!equipped[slot]) {
+      const id = pickDefaultId(slot, catalog);
+      if (id) equipPatch[slot] = id;
     }
+  }
 
-    if (sorted.length) loadAll();
-    else setLoaded([]);
+  if (Object.keys(equipPatch).length) {
+    await inv.apply({ equip: equipPatch, reason: 'bootstrap:first-run' });
+    notifyInventoryChanged();
+  }
+}
 
-    return () => { cancelled = true; };
-  }, [sorted, corsMode]);
-
-  // 캔버스 그리기
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr =
-      typeof window !== 'undefined'
-        ? Math.max(1, Math.min(3, pixelRatio ?? (window.devicePixelRatio || 1)))
-        : (pixelRatio ?? 1);
-
-    const w = Math.round(size * dpr);
-    const h = Math.round(size * dpr);
-
-    // 캔버스 리사이즈(고해상도)
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-      canvas.style.width = `${size}px`;
-      canvas.style.height = `${size}px`;
-    }
-
-    function drawOnce() {
-      ctx.clearRect(0, 0, w, h);
-      // 모든 레이어를 동일 크기로 합성 (이미지 자체가 정사이즈 시 정확히 겹침)
-      for (const { img } of loaded) {
-        // 필요 시 개별 레이어 오프셋/스케일이 있으면 여기서 반영
-        ctx.drawImage(img, 0, 0, w, h);
-      }
-    }
-
-    function loop() {
-      drawOnce();
-      if (playing) rafRef.current = requestAnimationFrame(loop);
-    }
-
-    // 첫 프레임
-    if (playing) {
-      rafRef.current && cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(loop);
-    } else {
-      drawOnce();
-    }
-
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-    };
-  }, [loaded, size, pixelRatio, playing]);
-
-  // 로딩/비어있는 상태 가드
-  const isEmpty = !sorted.length || !loaded.length;
-
-  return (
-    <div
-      className="avatar-renderer"
-  style={{ display: 'inline-block', width: size, height: size }}
-  aria-label="avatar"
-  >
-  <canvas ref={canvasRef} />
-  {isEmpty && (
-    <div
-      style={{
-    position: 'relative',
-      marginTop: -size,
-      width: size,
-      height: size,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: 12,
-      color: '#888',
-      userSelect: 'none',
-  }}
-  >
-    loading…
-        </div>
-  )}
-  </div>
-);
+/** 앱 진입 시 1회 호출 */
+export async function bootstrapApp() {
+  // 여기서 서버 동기화 등 확장 가능
+  await bootstrapFirstRun();
 }

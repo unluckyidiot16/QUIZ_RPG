@@ -11,8 +11,10 @@ type Slot =
   | 'Body' | 'Face' | 'BodySuit' | 'Pants' | 'Shoes' | 'Clothes' | 'Sleeves'
   | 'Necklace' | 'Bag' | 'Scarf' | 'Bowtie' | 'Hair' | 'Hat';
 
-const SLOTS: Slot[] = ['Body','BodySuit','Pants','Shoes','Clothes','Sleeves','Bag','Necklace','Scarf','Bowtie','Face','Hair','Hat'];
-
+const SLOTS: Slot[] = [
+  'Body','BodySuit','Pants','Shoes','Clothes','Sleeves',
+  'Bag','Necklace','Scarf','Bowtie','Face','Hair','Hat'
+];
 const toL = (s?: string) => (s ?? '').toLowerCase();
 
 const __prefix = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
@@ -39,27 +41,22 @@ const pickSrc = (it?: any) =>
   );
 
 // equipped만으로 레이어 계산(절대 카탈로그 전체로 확장 금지)
-function toLayers(equipped: Equipped, catalog: Record<string, WearableItem>) {
+function toLayers(equipped: Record<string, string>, catalog: Record<string, WearableItem>) {
   const layers: { id: string; slot: Slot; src?: string; name?: string; z: number }[] = [];
-  const Z_BY_SLOT: Record<Slot, number> = {
+  const Z: Record<Slot, number> = {
     Body: 0, BodySuit: 5, Pants: 10, Shoes: 15, Clothes: 20, Sleeves: 25,
     Bag: 30, Necklace: 40, Scarf: 45, Bowtie: 50, Face: 55, Hair: 60, Hat: 70,
   };
-  const getZ = (slot: Slot, it?: any) => Number.isFinite(it?.layer ?? it?.z) ? Number(it?.layer ?? it?.z) : (Z_BY_SLOT[slot] ?? 0);
 
   for (const slot of SLOTS) {
     const id = equipped[slot];
     if (!id) continue;
-    const it = catalog[id] ?? catalog[toL(id)];
-    layers.push({
-        id,
-        slot,
-        src: pickSrc(it) ?? '',
-        name: it?.name ?? id,
-        z: getZ(slot, it),
-    });
+    const it = catalog[id] ?? catalog[(id ?? '').toLowerCase()];
+    const src = pickSrc(it);
+    if (!src) continue; // src 없는 항목은 스킵
+    layers.push({ id, slot, src, name: it?.name ?? id, z: Number.isFinite((it as any)?.layer ?? (it as any)?.z) ? Number((it as any)?.layer ?? (it as any)?.z) : (Z[slot] ?? 0) });
   }
-  // 낮은 z 아래, 높은 z 위
+  // z 오름차순
   layers.sort((a, b) => a.z - b.z);
   return layers;
 }
@@ -67,9 +64,9 @@ function toLayers(equipped: Equipped, catalog: Record<string, WearableItem>) {
 // ── 컴포넌트 ─────────────────────────────────────
 export default function AppHeader() {
   const { inv } = useMemo(() => makeServices(), []);
-  const [equipped, setEquipped] = useState<Equipped>({});
-  const [catalog, setCatalog] = useState<Record<string, WearableItem>>({});
-  const [ready, setReady] = useState(false);
+  const [equipped, setEquipped] = useState<Record<string, string>>({});
+  const [catalog,  setCatalog ] = useState<Record<string, WearableItem>>({});
+  const [ready,    setReady   ] = useState(false);
 
   // 초기 로드
   useEffect(() => {
@@ -104,27 +101,22 @@ export default function AppHeader() {
 
   // 장착 데이터가 실제로 존재할 때만 레이어 계산/프리로드
   const hasEquip = useMemo(() => Object.values(equipped || {}).some(Boolean), [equipped]);
-  const layers = useMemo(
-    () => (hasEquip ? toLayers(equipped, catalog) : []),
-    [hasEquip, equipped, catalog]
-  );
 
+  const layers = useMemo(() => toLayers(equipped, catalog), [equipped, catalog]);
+  const hasLayers = layers.length > 0;
+  
   // 프리로드: 장착된 레이어 src만, 중복 제거
   useEffect(() => {
-    if (!hasEquip) return; // ☜ 첫 진입에 장착이 준비되기 전에 전체 프리로드 방지
-    const srcs = Array.from(new Set(layers.map(l => l.src).filter(Boolean) as string[]));
-    if (srcs.length) preloadImages(srcs);
-  }, [hasEquip, layers]);
+    if (!hasLayers) return;
+    const srcs = Array.from(new Set(layers.map(l => l.src!).filter(Boolean)));
+    preloadImages(srcs);
+  }, [hasLayers, layers]);
 
   return (
-    <header className="w-full px-4 py-3 flex items-center gap-3 bg-slate-900/60">
-      <div className="shrink-0">
-        {ready && hasEquip ? (
-          <AvatarRenderer
-            layers={layers.map(l => ({ ...l, src: l.src ?? '' }))}
-            size={120}
-            corsMode="none"
-          />
+    <header className="flex items-center gap-3 p-3">
+      <div className="w-[120px] h-[120px] rounded-xl overflow-hidden bg-black/20 border border-white/10 flex items-center justify-center">
+        {ready && hasLayers ? (
+          <AvatarRenderer layers={layers.map(l => ({ id: l.id, src: l.src!, z: l.z }))} size={120} corsMode="none" />
         ) : (
           <div style={{ width: 120, height: 120 }} />
         )}
