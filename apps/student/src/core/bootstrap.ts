@@ -1,100 +1,136 @@
-// src/core/bootstrap.ts
-import { loadWearablesCatalog } from './wearable.catalog';
-import type { WearableItem, Slot } from './wearable.types';
-import { makeServices } from './service.locator';
-import { notifyInventoryChanged } from './inv.bus';
+// apps/student/src/core/bootstrap.ts
+import { makeServices } from "./service.locator";
+import { loadWearablesCatalog } from "./wearable.catalog";
 
-// 슬롯 우선순위(아래일수록 위에 그림)
+type Slot =
+  | "Body" | "Face" | "BodySuit" | "Pants" | "Shoes" | "Clothes" | "Sleeves"
+  | "Necklace" | "Bag" | "Scarf" | "Bowtie" | "Hair" | "Hat";
+
 const SLOTS: Slot[] = [
-  'Body','Face','BodySuit','Pants','Shoes','Clothes','Sleeves',
-  'Bag','Necklace','Scarf','Bowtie','Hair','Hat'
+  "Body","Face","BodySuit","Pants","Shoes","Clothes","Sleeves",
+  "Necklace","Bag","Scarf","Bowtie","Hair","Hat",
 ];
 
-// 소문자 보조
-const toL = (s?: string) => (s ?? '').toLowerCase();
+const toL = (s?: string) => (s ?? "").toLowerCase();
 
-// 이미지 src 추출(스키마 다양성 대응)
-function pickSrc(it?: any): string | undefined {
-  const v =
-    it?.src ?? it?.image ?? it?.img ?? it?.renderSrc ?? it?.render ??
-    it?.thumbnail ?? it?.thumb ??
-    (Array.isArray(it?.images) ? it.images[0] : undefined) ??
-    (Array.isArray(it?.assets) ? it.assets[0] : undefined) ??
-    (typeof it?.file === 'string' ? it.file : undefined) ??
-    (typeof it?.url  === 'string' ? it.url  : undefined);
-  return typeof v === 'string' ? v : undefined;
+function toCatalogL(catAny: any) {
+  const m: Record<string, any> = {};
+  if (Array.isArray(catAny)) {
+    for (const it of catAny) m[toL(it.id)] = it;
+  } else if (catAny && typeof catAny === "object") {
+    for (const [id, it] of Object.entries(catAny)) m[toL(id)] = it;
+  }
+  return m;
 }
 
-// 기본(Null/Blank/Regular/Default) 휴리스틱
-function pickDefaultId(slot: Slot, catalog: Record<string, WearableItem>): string | undefined {
-  const items = Object.values(catalog).filter(i => i.slot === slot);
-
-  // 1) active === true 우선
-  const act = items.find(i => (i as any).active === true && pickSrc(i));
-  if (act) return act.id;
-
-  // 2) 이름/아이디 키워드 기반 폴백
-  const pref = (keys: string[]) =>
-    items.find(i => {
-      const id = toL(i.id);
-      const name = toL(i.name);
-      const has = (s: string) => keys.some(k => s.includes(k));
-      return pickSrc(i) && (has(id) || has(name));
-    })?.id;
-
-  // 슬롯별 추천 키워드
-  const kw: Record<Slot, string[]> = {
-    Body: ['blank','basic','default','white'],
-    Face: ['regular','basic','default','face'],
-    BodySuit: ['blank','basic','default'],
-    Pants: ['null','none','blank','basic','default'],
-    Shoes: ['null','none','blank','basic','default'],
-    Clothes: ['blank','basic','default','shirt','dress'],
-    Sleeves: ['blank','basic','default','sleeve'],
-    Bag: ['null','none','blank','basic','default','bag'],
-    Necklace: ['null','none','blank','basic','default','necklace'],
-    Scarf: ['null','none','blank','basic','default','scarf','scaf'],
-    Bowtie: ['null','none','blank','basic','default','bowtie'],
-    Hair: ['null','none','blank','basic','default','hair'],
-    Hat: ['null','none','blank','basic','default','hat'],
-    // 확장 슬롯이 있으면 추가
-  } as any;
-
-  const byKw = pref(kw[slot] ?? ['null','none','blank','regular','default','basic']);
-  if (byKw) return byKw;
-
-  // 3) 마지막 폴백: 아무거나 src 있는 첫 번째
-  const anyWithSrc = items.find(i => pickSrc(i))?.id;
-  return anyWithSrc;
+/** 슬롯별 “없음/기본(.null/none/blank/default/없음/기본)” 후보 찾기 */
+function findNullId(slot: Slot, catalogL: Record<string, any>): string | undefined {
+  for (const [idL, it] of Object.entries(catalogL)) {
+    if (it?.slot !== slot) continue;
+    const nameL = toL(it?.name);
+    if (
+      idL.endsWith(".null") ||
+      idL.includes("null") ||
+      idL.includes("none") ||
+      idL.includes("blank") ||
+      idL.includes("default") ||
+      nameL.includes("없음") ||
+      nameL.includes("기본")
+    ) {
+      return it.id ?? idL; // 원본 id 우선
+    }
+  }
+  return undefined;
 }
 
-/** 첫 실행 시, 기본 아이템 자동 장착 */
-export async function bootstrapFirstRun() {
+/** 그 외 “기본” 후보(없음이 없을 때 blank/basic/regular/default 등) */
+function pickDefaultId(slot: Slot, catalogL: Record<string, any>): string | undefined {
+  const items = Object.values(catalogL).filter((i: any) => i?.slot === slot);
+  const score = (it: any) => {
+    const s = `${it?.id ?? ""} ${it?.name ?? ""}`.toLowerCase();
+    return (s.includes("blank") || s.includes("basic") || s.includes("regular") ||
+      s.includes("default") || s.endsWith(".null") || s.includes("없음")) ? 0 : 1;
+  };
+  items.sort((a, b) => score(a) - score(b));
+  return (items[0] as any)?.id;
+}
+
+/** 최초 진입 시 1회 실행해도 안전: 멱등하게 동작 */
+export async function bootstrapApp() {
   const { inv } = makeServices();
-  const [state, catAny] = await Promise.all([inv.load(), loadWearablesCatalog()]);
-  const catalog: Record<string, WearableItem> = Array.isArray(catAny)
-    ? Object.fromEntries((catAny as WearableItem[]).map(it => [it.id, it]))
-    : (catAny as Record<string, WearableItem>);
 
-  const equipped = { ...(state.equipped as Record<string, string> ?? {}) };
+  const [state, catAny] = await Promise.all([
+    inv.load(),
+    loadWearablesCatalog(),
+  ]);
 
-  // 슬롯별로 비어있으면 기본값 채우기
-  const equipPatch: Partial<Record<Slot, string>> = {};
+  const catalogL = toCatalogL(catAny);
+
+  // 현재 보유 세트(owned / cosmeticsOwned 중 있는 쪽 사용)
+  const ownedRaw = (state?.cosmeticsOwned ?? state?.owned ?? []) as string[] | Record<string, unknown>;
+  const ownedSet = new Set<string>(
+    Array.isArray(ownedRaw)
+      ? ownedRaw
+      : typeof ownedRaw === "object"
+        ? Object.keys(ownedRaw)
+        : []
+  );
+
+  // 장착 상태
+  const equipped: Record<Slot, string | undefined> = { ...(state?.equipped ?? {}) };
+
+  // 1) 슬롯별 null 후보를 보유 목록에 **자동 추가**
+  const grants: string[] = [];
   for (const slot of SLOTS) {
-    if (!equipped[slot]) {
-      const id = pickDefaultId(slot, catalog);
-      if (id) equipPatch[slot] = id;
+    const nullId = findNullId(slot, catalogL);
+    if (nullId && !ownedSet.has(nullId)) {
+      ownedSet.add(nullId);
+      grants.push(nullId);
     }
   }
 
-  if (Object.keys(equipPatch).length) {
-    await inv.apply({ equip: equipPatch, reason: 'bootstrap:first-run' });
-    notifyInventoryChanged();
+  // 2) 비어 있는 슬롯은 “null 후보 → 기본 후보” 순으로 장착 보정
+  let equipPatched = false;
+  for (const slot of SLOTS) {
+    if (!equipped[slot]) {
+      const nullId = findNullId(slot, catalogL);
+      if (nullId) {
+        equipped[slot] = nullId;
+        equipPatched = true;
+        continue;
+      }
+      const defId = pickDefaultId(slot, catalogL);
+      if (defId) {
+        equipped[slot] = defId;
+        equipPatched = true;
+      }
+    }
   }
-}
 
-/** 앱 진입 시 1회 호출 */
-export async function bootstrapApp() {
-  // 여기서 서버 동기화 등 확장 가능
-  await bootstrapFirstRun();
+  // 변경 없다면 조용히 종료(멱등)
+  if (!grants.length && !equipPatched) return;
+
+  // 3) 저장(apply)
+  //  - grant/replacers는 게이트웨이 구현에 따라 옵션일 수 있어서 any로 안전 처리
+  const payload: any = {
+    reason: "bootstrap:null-defaults",
+  };
+  if (grants.length) {
+    // (지원 시) grant 필드
+    payload.grant = grants;
+    // (미지원 대비) owned/cosmeticsOwned도 함께 덮어쓰기/병합
+    payload.replace = {
+      cosmeticsOwned: Array.from(ownedSet),
+      owned: Array.from(ownedSet),
+    };
+  }
+  if (equipPatched) {
+    payload.equip = equipped;
+  }
+
+  await inv.apply(payload);
+  // 브로드캐스트
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("inv:changed"));
+  }
 }

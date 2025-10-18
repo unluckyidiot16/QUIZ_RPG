@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './index.css';
 import './sw-register';
+import AppShell from './app/AppShell';
 
 import Main from './pages/Main';
 import Lobby from './pages/Lobby';
@@ -16,37 +17,41 @@ import Codex from './pages/Codex';
 import TokenGatePage from './pages/TokenGatePage';
 import NotFound from './pages/NotFound';
 
+
+
 import { bootstrapApp } from './core/bootstrap';
 
 const router = createBrowserRouter([
-  { path: '/', element: <Main/> },
-  { path: '/lobby', element: <Lobby/> },
-  { path: '/play', element: <Play/> },
-  { path: '/result', element: <Result/> },
-  { path: '/gacha', element: <Gacha/> },
-  { path: '/inventory', element: <Inventory/> },
-  { path: '/wardrobe', element: <Wardrobe/> },
-  { path: '/codex', element: <Codex/> },
-  { path: '/token/:id', element: <TokenGatePage/> },
-  { path: '*', element: <NotFound /> },
+  {
+    element: <AppShell />,                 // ✅ 여기서 헤더를 모든 하위 라우트에 공통 적용
+    children: [
+      { index: true, element: <Main/> },
+      { path: '/lobby', element: <Lobby/> },
+      { path: '/play', element: <Play/> },           // 전투 씬도 헤더 포함!
+      { path: '/result', element: <Result/> },
+      { path: '/gacha', element: <Gacha/> },
+      { path: '/inventory', element: <Inventory/> },
+      { path: '/wardrobe', element: <Wardrobe/> },
+      { path: '/codex', element: <Codex/> },
+      { path: '/token/:id', element: <TokenGatePage/> },
+      { path: '*', element: <NotFound /> },
+    ],
+  },
 ]);
 
 function AppGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-
   useEffect(() => {
     (async () => {
       try {
-        await bootstrapApp();     // ✅ 렌더 전에 1회 서버 동기화 + 기본 세팅
+        await bootstrapApp();     // 렌더 전 1회: 기본 세팅/동기화
       } catch (e) {
         console.error('bootstrap failed', e);
-        // 실패해도 진입은 허용 (로컬 fallback 적용 가능)
       } finally {
         setReady(true);
       }
     })();
   }, []);
-
   if (!ready) {
     return (
       <div style={{
