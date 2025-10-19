@@ -1,0 +1,16 @@
+name: SQL guard (schema/public only)
+on: [pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block direct quiz.* usage in app code
+        run: |
+          ! grep -R --line-number -E '\bquiz\.' -- \
+            apps/ packages/ || (echo "::error ::Found quiz.* reference in app code" && exit 1)
+      - name: Enforce schema-qualified SQL in migrations
+        run: |
+          # 예: public. 없는 from/join 금지 (간단 정적 체크)
+          ! grep -R --line-number -E 'from\s+(?!public\.)[a-z_]+\b' migrations/ || \
+            echo "::warning ::Found unqualified FROM (manual check)"
