@@ -134,6 +134,13 @@ export default function Play() {
   const [enemyHP,  setEnemyHP]  = useState(MAX_HP);
   const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
 
+  const FPS_BY_STATE: Record<EnemyState, number> = {
+    Move: 8,      
+    Attack: 8,    
+    Die: 8,       
+    Hit: 2,      
+  };
+
   useEffect(() => {
     // 적 교체 시 HP 재설정
     setEnemyHP(Math.round(MAX_HP * (enemyDef.hpMul ?? 1)));
@@ -154,7 +161,7 @@ export default function Play() {
   const { frameUrl } = useSpriteAnimator(
     enemyDef.sprite,
     enemyState,
-    8,        // fps
+    FPS_BY_STATE[enemyState],
     looping
   );
   
@@ -300,22 +307,27 @@ export default function Play() {
       triggerShake(100);                // 짧은 흔들림
       if (nextEnemy > 0) {
         setEnemyState('Hit');           // 피격 점멸
-        if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+        const hitFps = FPS_BY_STATE.Hit;
+        const hitCycle = Math.ceil((1000 / hitFps) * Math.max(1, stateFrameCount(enemyDef.sprite, 'Hit')));
+        const hitHold = Math.max(220, Math.min(360, hitCycle)); // 0.22~0.36s 사이
         hitTimerRef.current = window.setTimeout(() => {
-          setEnemyState((s) => (s === 'Die' ? 'Die' : 'Move'));
-          }, 150);
+          setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
+          }, hitHold);
       }
     }
     
     //   - 오답(적 공격): Attack 짧게 재생
     if (!isCorrect && nextPlayer > 0) {
       setEnemyState('Attack');
-      setHitBorder('inner');        // 또는 'inner'로 취향 선택
+      setHitBorder('outer');        // 또는 'inner'로 취향 선택
       setTimeout(() => setHitBorder(null), 120);
       if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
+      const atkFps = FPS_BY_STATE.Attack;
+      const atkCycle = Math.ceil((1000 / atkFps) * stateFrameCount(enemyDef.sprite, 'Attack')); // 한 바퀴
+      const atkHold = Math.max(450, atkCycle); // 최소 450ms 이상
       attackTimerRef.current = window.setTimeout(() => {
         setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
-      }, 250);
+        }, atkHold);
       triggerShake(100);
     }
     //   - 적 사망: Die 고정
@@ -349,7 +361,9 @@ export default function Play() {
       );
       if (battleOutcome === true) {
         // Die 모션을 ~0.5s 보여주고 이동
-        await new Promise((r) => setTimeout(r, 480));
+        const dieFps = FPS_BY_STATE.Die;
+        const dieMs = Math.max(520, Math.ceil((1000 / dieFps) * stateFrameCount(enemyDef.sprite, 'Die')));
+        await new Promise((r) => setTimeout(r, dieMs));
       }
       await finalizeRun({ forcedClear: battleOutcome });
       return;
