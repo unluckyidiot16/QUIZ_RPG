@@ -263,26 +263,12 @@ export default function Play() {
     const turn = turnRef.current;
     const rng  = rngRef.current;
 
-    // 1) 적 행동(오답 시 적용될 피해, 실드/스파이크 플래그)
+    // 1) 적 행동(오답 시 적용될 피해, 실드/스파이크)
     const enemyAct = actByPattern(pattern, { rng: () => rng.next(), turn });
 
-    // 2) 플레이어 공격(정답일 때만)
+    // 2) 플레이어 공격/스파이크 "먼저" 계산
     let playerDmgToEnemy = 0;
     let spikeDmgToPlayer = 0;
-
-    // 3) 피해 적용
-    const nextEnemy  = Math.max(0, enemyHP  - playerDmgToEnemy);
-    const nextPlayer = Math.max(0, playerHP - (isCorrect ? 0 : enemyAct.dmgToPlayer) - spikeDmgToPlayer);
-
-
-    if (isCorrect && playerDmgToEnemy > 0 && nextEnemy > 0) {
-      setEnemyState('Hit');
-      if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
-      hitTimerRef.current = window.setTimeout(() => {
-        setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
-        }, 150);
-    }
-
     if (isCorrect) {
       const playerCrit = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(PLAYER_BASE_DMG * 0.5) : 0;
       const raw = PLAYER_BASE_DMG + playerCrit;
@@ -290,33 +276,49 @@ export default function Play() {
       playerDmgToEnemy = applyShieldToDamage(withAff, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
     }
-  
-    setEnemyHP(nextEnemy);
-    setPlayerHP(nextPlayer);
-    
-    turnsRef.current.push({
-      id: q.id,
-      pick,
-      correct: isCorrect,
-      turn, // 현재 턴 번호
-      playerElem,
-      enemyElem: resolvedEnemyElem,
-      pattern,
-      enemyAct,
-      playerDmgToEnemy,
-      spikeDmgToPlayer,
-      hpAfter: { player: nextPlayer, enemy: nextEnemy },
-    });
 
+    // 3) 피해를 계산한 "후에" HP 적용
+    const nextEnemy  = Math.max(0, enemyHP  - playerDmgToEnemy);
+    const nextPlayer = Math.max(0, playerHP - (isCorrect ? 0 : enemyAct.dmgToPlayer) - spikeDmgToPlayer);
+
+    // 4) 애니메이션 상태 전환
+    //   - 정답(적 피격): Hit 짧게 점멸 (적이 아직 살아있을 때만)
+    if (isCorrect && playerDmgToEnemy > 0 && nextEnemy > 0) {
+      setEnemyState('Hit');
+      if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+      hitTimerRef.current = window.setTimeout(() => {
+        setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
+      }, 150);
+    }
+    //   - 오답(적 공격): Attack 짧게 재생
+    if (!isCorrect && nextPlayer > 0) {
+      setEnemyState('Attack');
+      if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
+      attackTimerRef.current = window.setTimeout(() => {
+        setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
+      }, 250);
+    }
+    //   - 적 사망: Die 고정
     if (nextEnemy <= 0) {
       setEnemyState('Die');
     }
 
-    // 5) 진행/종료
+    // 5) HP 반영
+    setEnemyHP(nextEnemy);
+    setPlayerHP(nextPlayer);
+
+    // 6) 전투 로그
+    turnsRef.current.push({
+      id: q.id, pick, correct: isCorrect, turn,
+      playerElem, enemyElem: resolvedEnemyElem, pattern, enemyAct,
+      playerDmgToEnemy, spikeDmgToPlayer,
+      hpAfter: { player: nextPlayer, enemy: nextEnemy },
+    });
+
+    // 7) 종료/진행 분기
     const isBattleEnd    = (nextEnemy <= 0 || nextPlayer <= 0);
     const isLastQuestion = (idx + 1 >= questions.length);
-    // 전투 즉시판정: 적 0 → 승리, 플레이어 0 → 패배
-    const battleOutcome = nextEnemy <= 0 ? true : (nextPlayer <= 0 ? false : undefined);
+    const battleOutcome  = nextEnemy <= 0 ? true : (nextPlayer <= 0 ? false : undefined);
     turnRef.current = turn + 1;
 
     if (isBattleEnd || isLastQuestion) {
@@ -325,7 +327,7 @@ export default function Play() {
           battleOutcome === false ? '패배… 결과 정리 중…' :
             (isCorrect ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…')
       );
-      await finalizeRun({ forcedClear: battleOutcome });  // ← 이게 핵심
+      await finalizeRun({ forcedClear: battleOutcome });
       return;
     }
 
@@ -397,8 +399,8 @@ export default function Play() {
             height={360}
             style={{
               imageRendering: 'pixelated',
-              maxWidth: 'min(60vw, 460px)',
-              maxHeight: 'min(60vw, 460px)',
+              maxWidth: 'min(60vw, 360px)',
+              maxHeight: 'min(60vw, 360px)',
                 ...(hitTintStyle(enemyState) || {}),
             } as React.CSSProperties}
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = enemyImgUrl; }} // 폴백
