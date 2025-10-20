@@ -34,6 +34,21 @@ type TurnLog = {
   hpAfter: { player: number; enemy: number };
 };
 
+const [shake, setShake] = useState(false);
+const [pops, setPops] = useState<Array<{ id: number; val: number }>>([]);
+const popIdRef = useRef(0);
+
+const triggerShake = (ms = 120) => {   
+  setShake(true);
+  window.setTimeout(() => setShake(false), ms);
+};
+const pushDamage = (val: number) => {
+  const id = ++popIdRef.current;
+  setPops((a) => [...a, { id, val }]);
+  window.setTimeout(() => setPops((a) => a.filter((p) => p.id !== id)), 650);
+};
+
+
 function usePackParam() {
   const qs = new URLSearchParams(location.search);
   return qs.get('pack') || 'sample';
@@ -290,6 +305,19 @@ export default function Play() {
         setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
       }, 150);
     }
+
+    if (isCorrect && playerDmgToEnemy > 0) {
+      pushDamage(playerDmgToEnemy);     // "-12" 팝업
+      triggerShake(100);                // 짧은 흔들림
+      if (nextEnemy > 0) {
+        setEnemyState('Hit');           // 피격 점멸
+        if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+        hitTimerRef.current = window.setTimeout(() => {
+          setEnemyState((s) => (s === 'Die' ? 'Die' : 'Move'));
+          }, 150);
+      }
+    }
+    
     //   - 오답(적 공격): Attack 짧게 재생
     if (!isCorrect && nextPlayer > 0) {
       setEnemyState('Attack');
@@ -297,6 +325,7 @@ export default function Play() {
       attackTimerRef.current = window.setTimeout(() => {
         setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
       }, 250);
+      triggerShake(100);
     }
     //   - 적 사망: Die 고정
     if (nextEnemy <= 0) {
@@ -391,7 +420,8 @@ export default function Play() {
       <div className="p-3 border rounded mb-2">
         <div className="text-sm font-medium">전투(주2 테스트)</div>
         {/* Enemy visual */}
-        <div className="flex items-end justify-center my-2 min-h-[320px] md:min-h-[480px]">
+        <div className="flex items-end justify-center my-2 min-h-[320px] md:min-h-[480px]"  style={{ transform: shake ? 'translateX(3px)' : 'translateX(0)', transition: 'transform 80ms' }}
+        >
           <img
             src={frameUrl || enemyImgUrl}   // 애니메이터 우선, 실패 시 1프레임
             alt={enemyDef.name}
@@ -405,6 +435,16 @@ export default function Play() {
             } as React.CSSProperties}
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = enemyImgUrl; }} // 폴백
           />
+          {/* 데미지 팝업 */}
+          {pops.map(p => (
+            <div
+              key={p.id}
+              className="absolute -top-6 font-bold drop-shadow text-red-500"
+              style={{ left: '50%', transform: 'translateX(-50%)' }}
+            >
+              -{p.val}
+            </div>
+          ))}
         </div>
         <div className="text-xs opacity-70">
           적:{enemyDef.name} · P:{playerElem} vs E:{resolvedEnemyElem} / 패턴:{pattern} / 턴:{turnRef.current}
