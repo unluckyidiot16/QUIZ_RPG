@@ -298,7 +298,24 @@ export default function Play() {
     }
   }, [q, idx]);
 
-  // 4) 답안 처리
+  // 4) 키보드 입력(ABCD)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.key.toUpperCase();
+      if (k === 'A' || k === 'B' || k === 'C' || k === 'D') onPick(k as Choice['key']);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [q]);
+
+  useEffect(() => {
+    return () => {
+      if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
+      if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+    };
+  }, []);
+  
+  // 5) 답안 처리
   async function onPick(pick: Choice['key']) {
     if (!q) return;
     const isCorrect = (pick === q.answerKey);
@@ -399,23 +416,31 @@ export default function Play() {
     // 계속 진행
     setMsg(isCorrect ? '정답!' : '오답 💦');
     setIdx(idx + 1);
+  }
+  
+  async function finalizeRun(opts?: { forcedClear?: boolean }) {
+    setMsg('결과 정리 중…');
+    const turns = turnsRef.current;
+    const total = Math.max(1, questions.length);
+    const score = turns.filter(t => t.correct).length;
+    const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
+    const passByScore = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
+    // 전투 즉시판정이 있으면 우선, 없으면 점수 기준
+    const cleared = (typeof opts?.forcedClear === 'boolean') ? opts!.forcedClear : passByScore;
 
-// 5) 키보드 입력(ABCD)
-    useEffect(() => {
-      const onKey = (e: KeyboardEvent) => {
-        const k = e.key.toUpperCase();
-        if (k === 'A' || k === 'B' || k === 'C' || k === 'D') onPick(k as Choice['key']);
-      };
-      window.addEventListener('keydown', onKey);
-      return () => window.removeEventListener('keydown', onKey);
-    }, [q]);
+    const summary = {cleared, turns: total, durationSec};
+    localStorage.setItem('qd:lastResult', JSON.stringify(summary));
+    localStorage.setItem('qd:lastPack', pack);
+    localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
 
-    useEffect(() => {
-      return () => {
-        if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
-        if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
-      };
-    }, []);
+    try {
+      await proofRef.current?.summary?.({cleared, score, total} as any);
+    } catch {
+    }
+
+    nav('/result', {replace: true}); // ← 이동
+  }
+  
 
     // ───────────── 렌더 ─────────────
     if (loading) return <div className="p-6">로딩…</div>;
@@ -539,31 +564,5 @@ export default function Play() {
 
           <div className="text-emerald-400">{msg}</div>
         </div>
-      </>
-    );
-  }
-
-  async function finalizeRun(opts?: { forcedClear?: boolean }) {
-    setMsg('결과 정리 중…');
-    const turns = turnsRef.current;
-    const total = Math.max(1, questions.length);
-    const score = turns.filter(t => t.correct).length;
-    const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
-    const passByScore = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
-    // 전투 즉시판정이 있으면 우선, 없으면 점수 기준
-    const cleared = (typeof opts?.forcedClear === 'boolean') ? opts!.forcedClear : passByScore;
-
-    const summary = {cleared, turns: total, durationSec};
-    localStorage.setItem('qd:lastResult', JSON.stringify(summary));
-    localStorage.setItem('qd:lastPack', pack);
-    localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
-
-    try {
-      await proofRef.current?.summary?.({cleared, score, total} as any);
-    } catch {
-    }
-
-    nav('/result', {replace: true}); // ← 이동
-  }
-
+      </>);
 }
