@@ -1,13 +1,14 @@
 // apps/student/src/pages/Play.tsx
 // 전투 씬: QR 토큰 로그인 → 런 발급 → 팩 로드/정규화 → 진행/기록 → 결과 저장(로컬) → /result
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 // ⚠️ Result.tsx가 '../api'를 쓰고 있으니 여기도 동일 경로로 맞춰 드롭 인
 import * as api from '../api';
 import { makeRng } from '../shared/lib/rng';
 import { resolveElemsFromQuery, mult } from '../game/combat/affinity';
 import { actByPattern, PatternKey, applyShieldToDamage } from '../game/combat/patterns';
 import { MAX_HP, PLAYER_BASE_DMG, PLAYER_CRIT_CHANCE } from '../game/combat/constants';
+import { pickEnemyByQuery } from '../game/combat/enemy';
 import type { EnemyAction } from '../game/combat/patterns';
 import type { Elem } from '../game/combat/affinity';
 
@@ -87,6 +88,9 @@ function normalizeQuestion(raw: any, i: number): Question | null {
 export default function Play() {
   const pack = usePackParam();
   const nav = useNavigate();
+  
+  const location = useLocation();
+  const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('로딩 중…');
@@ -100,14 +104,23 @@ export default function Play() {
   const startAtRef = useRef<number>(0);
   const proofRef = useRef<any>(null); // 동적 import 대응
 
-  // …컴포넌트 내부
   const [playerHP, setPlayerHP] = useState(MAX_HP);
   const [enemyHP,  setEnemyHP]  = useState(MAX_HP);
+  
+  useEffect(() => {
+      // 마운트 시 1회: 적 HP를 배수로 스케일
+    const base = Math.round(MAX_HP * (enemyDef.hpMul ?? 1));
+    setEnemyHP(base);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-// URL 파라미터로 속성/패턴 스텁(없으면 기본)
-  const search = new URLSearchParams(window.location.search);
-  const { player: playerElem, enemy: enemyElem } = resolveElemsFromQuery(search);
-  const pattern: PatternKey = (search.get('pat') as PatternKey) ?? 'Aggressive';
+// URL 파라미터 + 적 카탈로그 결정
+  const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
+  const { player: playerElem, enemy: enemyElemQS } = resolveElemsFromQuery(search);
+  const enemyParam = search.get('e');                   // 'e'가 없으면 카탈로그 속성 사용
+  const resolvedEnemyElem = enemyParam ? enemyElemQS : enemyDef.elem;
+  const patParam = search.get('pat') as PatternKey | null;
+  const pattern: PatternKey = patParam ?? enemyDef.pattern ?? 'Aggressive';
   
 // 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
   const runToken = useMemo(() => /* 기존 런 식별자 사용 */ (localStorage.getItem('runToken') ?? 'dev'), []);
@@ -171,7 +184,7 @@ export default function Play() {
     (async () => {
       try {
         setLoading(true);
-        const url = new URL(`packs/${pack}.json`, location.origin).toString();
+        const url = new URL(`packs/${pack}.json`, location.search).toString();
         const res = await fetch(url, { cache: 'no-store', signal: ac.signal });
         let rawList: any = [];
         if (res.ok) rawList = await res.json();
@@ -229,7 +242,7 @@ export default function Play() {
     if (isCorrect) {
       const playerCrit = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(PLAYER_BASE_DMG * 0.5) : 0;
       const raw = PLAYER_BASE_DMG + playerCrit;
-      const withAff = Math.ceil(raw * mult(playerElem, enemyElem));
+      const withAff = Math.ceil(raw * mult(playerElem, resolvedEnemyElem));
       playerDmgToEnemy = applyShieldToDamage(withAff, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
     }
@@ -247,7 +260,7 @@ export default function Play() {
       correct: isCorrect,
       turn, // 현재 턴 번호
       playerElem,
-      enemyElem,
+      enemyElem: resolvedEnemyElem,
       pattern,
       enemyAct,
       playerDmgToEnemy,
@@ -326,7 +339,9 @@ export default function Play() {
 
       <div className="p-3 border rounded mb-2">
         <div className="text-sm font-medium">전투(주2 테스트)</div>
-        <div className="text-xs opacity-70">P:{playerElem} vs E:{enemyElem} / 패턴:{pattern} / 턴:{turnRef.current}</div>
+        <div className="text-xs opacity-70">
+          적:{enemyDef.name} · P:{playerElem} vs E:{resolvedEnemyElem} / 패턴:{pattern} / 턴:{turnRef.current}
+        </div>
         <HPBar value={playerHP} label="Player" />
         <HPBar value={enemyHP}  label="Enemy" />
       </div>
