@@ -20,7 +20,7 @@ export type EnemyDef = {
 export const ENEMIES: EnemyDef[] = [
   {
     id: 'E01', name: 'Blue Slime', elem: 'SCI', pattern: 'Shield', hpMul: 1.0,
-    sprite: { type: 'Slime', variant: 'Blue', frames: { Move: 4, Attack: 4, Die: 4 } }
+    sprite: { type: 'Slime', variant: 'Blue', frames: { Move: 6, Attack: 8, Die: 8 } }
   },
   {
     id: 'E02', name: 'Goblin', elem: 'ENG', pattern: 'Aggressive', hpMul: 1.1,
