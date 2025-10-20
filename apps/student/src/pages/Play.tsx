@@ -1,13 +1,34 @@
 // apps/student/src/pages/Play.tsx
 // 전투 씬: QR 토큰 로그인 → 런 발급 → 팩 로드/정규화 → 진행/기록 → 결과 저장(로컬) → /result
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // ⚠️ Result.tsx가 '../api'를 쓰고 있으니 여기도 동일 경로로 맞춰 드롭 인
 import * as api from '../api';
+import { makeRng } from '../shared/lib/rng';
+import { resolveElemsFromQuery, mult } from '../game/combat/affinity';
+import { actByPattern, PatternKey, applyShieldToDamage } from '../game/combat/patterns';
+import { MAX_HP, PLAYER_BASE_DMG, PLAYER_CRIT_CHANCE } from '../game/combat/constants';
+import type { EnemyAction } from '../game/combat/patterns';
+import type { Elem } from '../game/combat/affinity';
+
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
 type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
 type Turn = { id: string; pick: Choice['key']; correct: boolean };
+
+type TurnLog = {
+  id: string;
+  pick: Choice['key'];
+  correct: boolean;
+  turn: number;
+  playerElem: Elem;
+  enemyElem: Elem;
+  pattern: 'Aggressive' | 'Shield' | 'Spiky';
+  enemyAct: EnemyAction;
+  playerDmgToEnemy: number;
+  spikeDmgToPlayer: number;
+  hpAfter: { player: number; enemy: number };
+};
 
 function usePackParam() {
   const qs = new URLSearchParams(location.search);
@@ -79,6 +100,32 @@ export default function Play() {
   const startAtRef = useRef<number>(0);
   const proofRef = useRef<any>(null); // 동적 import 대응
 
+  // …컴포넌트 내부
+  const [playerHP, setPlayerHP] = useState(MAX_HP);
+  const [enemyHP,  setEnemyHP]  = useState(MAX_HP);
+
+// URL 파라미터로 속성/패턴 스텁(없으면 기본)
+  const search = new URLSearchParams(window.location.search);
+  const { player: playerElem, enemy: enemyElem } = resolveElemsFromQuery(search);
+  const pattern: PatternKey = (search.get('pat') as PatternKey) ?? 'Aggressive';
+
+// 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
+  const runToken = useMemo(() => /* 기존 런 식별자 사용 */ (localStorage.getItem('runToken') ?? 'dev'), []);
+  const rngRef = useRef(makeRng(runToken));
+  const turnRef = useRef(1);
+
+  // 간단 HP Bar(임시)
+  const HPBar = ({ value, label }: { value:number; label:string }) => {
+    const pct = Math.max(0, Math.min(100, (value / MAX_HP) * 100));
+    return (
+    <div className="my-2">
+      <div className="text-xs opacity-80">{label} HP {value}/{MAX_HP}</div>
+      <div className="w-full h-2 bg-slate-700 rounded">
+        <div className="h-2 bg-emerald-500 rounded" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+    );}
+  
   // 1) QR 토큰 로그인 → 런 발급 → Proof 로깅 준비
   useEffect(() => {
     if (startedRef.current) return;
@@ -166,56 +213,96 @@ export default function Play() {
   }, [q, idx]);
 
   // 4) 답안 처리
-  async function onAnswer(key: Choice['key']) {
+
+  // 4) 답안 처리
+  async function onPick(pick: Choice['key']) {
     if (!q) return;
-    const correct = q.answerKey === key;
+    const isCorrect = (pick === q.answerKey);
+    const turn = turnRef.current;
+    const rng  = rngRef.current;
 
-    // Proof 로그는 실패해도 무시
-    try { await proofRef.current?.log?.({ type: 'answer', id: q.id, pick: key, correct }); } catch {}
+    // 1) 적 행동(오답 시 적용될 피해, 실드/스파이크 플래그)
+    const enemyAct = actByPattern(pattern, { rng: () => rng.next(), turn });
+    
+    // 2) 플레이어 공격(정답일 때만)
+    let playerDmgToEnemy = 0;
+    let spikeDmgToPlayer = 0;
 
-    // 로컬 턴 누적
-    turnsRef.current.push({ id: q.id, pick: key, correct });
+    if (isCorrect) {
+      const playerCrit = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(PLAYER_BASE_DMG * 0.5) : 0;
+      const raw = PLAYER_BASE_DMG + playerCrit;
+      const withAff = Math.ceil(raw * mult(playerElem, enemyElem));
+      playerDmgToEnemy = applyShieldToDamage(withAff, enemyAct.shieldActive);
+      if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
+    }
 
-    const isLast = idx >= (questions.length - 1);
-    if (!isLast) {
-      setIdx(i => i + 1);
-      setMsg(correct ? '정답! 다음 문제로…' : '오답 💦 다음 문제로…');
+    // 3) 피해 적용
+    const nextEnemy  = Math.max(0, enemyHP  - playerDmgToEnemy);
+    const nextPlayer = Math.max(0, playerHP - (isCorrect ? 0 : enemyAct.dmgToPlayer) - spikeDmgToPlayer);
+
+    setEnemyHP(nextEnemy);
+    setPlayerHP(nextPlayer);
+    
+    // 4) 전투 로그
+    const turnsRef = useRef<TurnLog[]>([]);
+    
+    turnsRef.current.push({
+      id: q.id,
+      pick,
+      correct: isCorrect,
+      turn, // 현재 턴 번호
+      playerElem,
+      enemyElem,
+      pattern,
+      enemyAct,
+      playerDmgToEnemy,
+      spikeDmgToPlayer,
+      hpAfter: { player: nextPlayer, enemy: nextEnemy },
+    });
+
+
+    // 5) 진행/종료
+    const isBattleEnd    = (nextEnemy <= 0 || nextPlayer <= 0);
+    const isLastQuestion = (idx + 1 >= questions.length);
+    turnRef.current = turn + 1;
+
+    if (isBattleEnd || isLastQuestion) {
+      setMsg(isCorrect ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…');
+      await finalizeRun();
       return;
     }
 
-    // 마지막: 결과 객체(배열 아님!)를 직접 저장 → Result.tsx가 곧바로 읽음
-    setMsg(correct ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…');
-    try {
-      const turns = turnsRef.current;
-      const total = Math.max(1, questions.length);
-      const score = turns.filter(t => t.correct).length;
-      const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
-      const cleared = score >= Math.ceil(total * 0.6); // 통과 기준(60%) — 필요 시 조정
-
-      const summary = { cleared, turns: total, durationSec };
-      localStorage.setItem('qd:lastResult', JSON.stringify(summary));
-      localStorage.setItem('qd:lastPack', pack);
-      // (선택) 디버깅용으로 턴 배열도 남김
-      localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
-
-      // Proof summary는 부가적으로만 시도(형태가 달라도 무시)
-      try {
-        await proofRef.current?.summary?.(correct as any);
-      } catch {}
-    } finally {
-      nav('/result');
-    }
+    setMsg(isCorrect ? '정답!' : '오답 💦');
+    setIdx(idx + 1);
   }
 
-  // 5) 키보드 입력(ABCD)
+  async function finalizeRun() {
+    setMsg('결과 정리 중…');
+    const turns = turnsRef.current;
+    const total = Math.max(1, questions.length);
+    const score = turns.filter(t => t.correct).length;
+    const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
+    const cleared = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
+
+    const summary = { cleared, turns: total, durationSec };
+    localStorage.setItem('qd:lastResult', JSON.stringify(summary));
+    localStorage.setItem('qd:lastPack', pack);
+    localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
+
+    try { await proofRef.current?.summary?.({ cleared, score, total } as any); } catch {}
+    nav('/result');
+  }
+
+// 5) 키보드 입력(ABCD)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toUpperCase();
-      if (k === 'A' || k === 'B' || k === 'C' || k === 'D') onAnswer(k as Choice['key']);
+      if (k === 'A' || k === 'B' || k === 'C' || k === 'D') onPick(k as Choice['key']);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [q]);
+
 
   // ───────────── 렌더 ─────────────
   if (loading) return <div className="p-6">로딩…</div>;
@@ -233,7 +320,13 @@ export default function Play() {
       </div>
       <div className="text-sm opacity-80">{idx + 1} / {total}</div>
 
-      <h2 className="text-xl font-bold">전투(퀴즈)</h2>
+      <div className="p-3 border rounded mb-2">
+        <div className="text-sm font-medium">전투(주2 테스트)</div>
+        <div className="text-xs opacity-70">P:{playerElem} vs E:{enemyElem} / 패턴:{pattern} / 턴:{turnRef.current}</div>
+        <HPBar value={playerHP} label="Player" />
+        <HPBar value={enemyHP}  label="Enemy" />
+      </div>
+
       <div className="p-4 rounded bg-slate-800">
         <div className="font-medium whitespace-pre-wrap">{q.stem}</div>
         <div className="grid gap-2 mt-3">
@@ -241,7 +334,7 @@ export default function Play() {
             <button
               key={c.key}
               className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
-              onClick={() => onAnswer(c.key)}
+              onClick={() => onPick(c.key)}
             >
               <span className="font-bold mr-2">{c.key}.</span>{c.text}
             </button>
