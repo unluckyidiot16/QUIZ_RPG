@@ -1,132 +1,83 @@
 [
-  {
-    "id": "Q1",
-    "subject": "MATH",
-    "stem": "1/2 = ?",
-    "choices": [
-      { "key": "A", "text": "0.5" },
-      { "key": "B", "text": "0.25" },
-      { "key": "C", "text": "0.75" },
-      { "key": "D", "text": "0.2" }
-    ],
-    "answerKey": "A",
-    "explanation": "1 ÷ 2 = 0.5"
+  { "id":"Q1","subject":"MATH","stem":"8×7 = ?","choices":[
+    {"key":"A","text":"54"},{"key":"B","text":"56"},{"key":"C","text":"58"},{"key":"D","text":"60"}],
+    "answerKey":"B","explanation":"8×7=56"
   },
-  {
-    "id": "Q2",
-    "subject": "ENG",
-    "stem": "Choose the correct past form: \"I ___ to school yesterday.\"",
-    "choices": [
-      { "key": "A", "text": "go" },
-      { "key": "B", "text": "went" },
-      { "key": "C", "text": "gone" },
-      { "key": "D", "text": "going" }
-    ],
-    "answerKey": "B",
-    "explanation": "과거형: go → went"
+  { "id":"Q2","subject":"ENG","stem":"Choose the correct article: \"___ apple a day.\"","choices":[
+    {"key":"A","text":"A"},{"key":"B","text":"An"},{"key":"C","text":"The"},{"key":"D","text":"No article"}],
+    "answerKey":"B","explanation":"모음 소리 앞에는 an"
   },
-  {
-    "id": "Q3",
-    "subject": "KOR",
-    "stem": "다음 중 맞춤법이 옳은 것은?",
-    "choices": [
-      { "key": "A", "text": "왠일이야" },
-      { "key": "B", "text": "웬일이야" },
-      { "key": "C", "text": "왠 일이야" },
-      { "key": "D", "text": "웬 일이야" }
-    ],
-    "answerKey": "B",
-    "explanation": "‘웬일’이 맞음(의문을 나타내는 ‘웬’)."
+  { "id":"Q3","subject":"KOR","stem":"띄어쓰기: 옳은 것은?","choices":[
+    {"key":"A","text":"할수 있다"},{"key":"B","text":"할 수있다"},{"key":"C","text":"할 수 있다"},{"key":"D","text":"할수있다"}],
+    "answerKey":"C","explanation":"보조 용언 ‘수 있다’는 띄어 씀"
   },
-  {
-    "id": "Q4",
-    "subject": "SCI",
-    "stem": "물의 끓는점(해수면 기준)은?",
-    "choices": [
-      { "key": "A", "text": "50℃" },
-      { "key": "B", "text": "80℃" },
-      { "key": "C", "text": "100℃" },
-      { "key": "D", "text": "120℃" }
-    ],
-    "answerKey": "C",
-    "explanation": "해수면 표준 대기압에서 100℃"
+  { "id":"Q4","subject":"SCI","stem":"지구의 위성은?","choices":[
+    {"key":"A","text":"달"},{"key":"B","text":"금성"},{"key":"C","text":"화성"},{"key":"D","text":"목성"}],
+    "answerKey":"A","explanation":"지구의 자연위성은 달"
   },
-  {
-    "id": "Q5",
-    "subject": "SOC",
-    "stem": "대한민국의 수도는?",
-    "choices": [
-      { "key": "A", "text": "서울" },
-      { "key": "B", "text": "부산" },
-      { "key": "C", "text": "인천" },
-      { "key": "D", "text": "대전" }
-    ],
-    "answerKey": "A",
-    "explanation": "수도는 서울"
+  { "id":"Q5","subject":"SOC","stem":"대한민국의 수도는?","choices":[
+    {"key":"A","text":"서울"},{"key":"B","text":"부산"},{"key":"C","text":"인천"},{"key":"D","text":"대전"}],
+    "answerKey":"A","explanation":"수도는 서울"
   },
-  {
-    "id": "Q6",
-    "subject": "GEN",
-    "stem": "다음 중 포유류가 아닌 것은?",
-    "choices": [
-      { "key": "A", "text": "고래" },
-      { "key": "B", "text": "박쥐" },
-      { "key": "C", "text": "상어" },
-      { "key": "D", "text": "사자" }
-    ],
-    "answerKey": "C",
-    "explanation": "상어는 어류"
+  { "id":"Q6","subject":"GEN","stem":"다음 중 포유류가 아닌 것은?","choices":[
+    {"key":"A","text":"고래"},{"key":"B","text":"펭귄"},{"key":"C","text":"박쥐"},{"key":"D","text":"사슴"}],
+    "answerKey":"B","explanation":"펭귄은 조류"
   },
-  {
-    "id": "Q7",
-    "subject": "MATH",
-    "stem": "3×7 = ?",
-    "choices": [
-      { "key": "A", "text": "20" },
-      { "key": "B", "text": "21" },
-      { "key": "C", "text": "24" },
-      { "key": "D", "text": "27" }
-    ],
-    "answerKey": "B",
-    "explanation": "3×7=21"
+  { "id":"Q7","subject":"MATH","stem":"분수 3/4 = ?","choices":[
+    {"key":"A","text":"0.25"},{"key":"B","text":"0.5"},{"key":"C","text":"0.75"},{"key":"D","text":"1.25"}],
+    "answerKey":"C","explanation":"3÷4=0.75"
   },
-  {
-    "id": "Q8",
-    "subject": "ENG",
-    "stem": "Fill in: \"There ___ a book on the desk.\"",
-    "choices": [
-      { "key": "A", "text": "is" },
-      { "key": "B", "text": "are" },
-      { "key": "C", "text": "be" },
-      { "key": "D", "text": "am" }
-    ],
-    "answerKey": "A",
-    "explanation": "단수 주어 → is"
+  { "id":"Q8","subject":"ENG","stem":"과거형: \"I ___ the movie yesterday.\"","choices":[
+    {"key":"A","text":"see"},{"key":"B","text":"saw"},{"key":"C","text":"seen"},{"key":"D","text":"seeing"}],
+    "answerKey":"B","explanation":"see의 과거형은 saw"
   },
-  {
-    "id": "Q9",
-    "subject": "SCI",
-    "stem": "지구가 태양 주위를 도는 데 걸리는 시간은?",
-    "choices": [
-      { "key": "A", "text": "약 1일" },
-      { "key": "B", "text": "약 1달" },
-      { "key": "C", "text": "약 1년" },
-      { "key": "D", "text": "약 10년" }
-    ],
-    "answerKey": "C",
-    "explanation": "공전 주기 약 365일"
+  { "id":"Q9","subject":"KOR","stem":"맞춤법이 옳은 것은?","choices":[
+    {"key":"A","text":"왠일"},{"key":"B","text":"웬일"},{"key":"C","text":"왠 일"},{"key":"D","text":"웬 일이"}],
+    "answerKey":"B","explanation":"‘웬일’이 맞음"
   },
-  {
-    "id": "Q10",
-    "subject": "KOR",
-    "stem": "띄어쓰기: \"할 수 있다\"의 맞는 표기는?",
-    "choices": [
-      { "key": "A", "text": "할수있다" },
-      { "key": "B", "text": "할 수 있다" },
-      { "key": "C", "text": "할 수있다" },
-      { "key": "D", "text": "할수 있다" }
-    ],
-    "answerKey": "B",
-    "explanation": "보조 용언 ‘수 있다’는 띄어 씀"
+  { "id":"Q10","subject":"SCI","stem":"물의 끓는점(해수면 기준)은?","choices":[
+    {"key":"A","text":"90℃"},{"key":"B","text":"95℃"},{"key":"C","text":"100℃"},{"key":"D","text":"110℃"}],
+    "answerKey":"C","explanation":"표준 대기압에서 100℃"
+  },
+  { "id":"Q11","subject":"SOC","stem":"민주주의의 핵심 요소가 아닌 것은?","choices":[
+    {"key":"A","text":"자유 선거"},{"key":"B","text":"법치주의"},{"key":"C","text":"언론 자유"},{"key":"D","text":"일당독재"}],
+    "answerKey":"D","explanation":"일당독재는 민주주의에 반함"
+  },
+  { "id":"Q12","subject":"GEN","stem":"태양계에서 가장 큰 행성은?","choices":[
+    {"key":"A","text":"지구"},{"key":"B","text":"토성"},{"key":"C","text":"목성"},{"key":"D","text":"천왕성"}],
+    "answerKey":"C","explanation":"가장 큰 행성은 목성"
+  },
+  { "id":"Q13","subject":"MATH","stem":"√81 = ?","choices":[
+    {"key":"A","text":"7"},{"key":"B","text":"8"},{"key":"C","text":"9"},{"key":"D","text":"10"}],
+    "answerKey":"C","explanation":"9×9=81"
+  },
+  { "id":"Q14","subject":"ENG","stem":"빈칸: \"There ___ many people.\"","choices":[
+    {"key":"A","text":"is"},{"key":"B","text":"are"},{"key":"C","text":"am"},{"key":"D","text":"be"}],
+    "answerKey":"B","explanation":"복수 주어 → are"
+  },
+  { "id":"Q15","subject":"KOR","stem":"문장 부호 사용: 인용문을 닫는 기호는?","choices":[
+    {"key":"A","text":"“"},{"key":"B","text":"”"},{"key":"C","text":"‘"},{"key":"D","text":"’"}],
+    "answerKey":"B","explanation":"여는 큰따옴표 “ / 닫는 큰따옴표 ”"
+  },
+  { "id":"Q16","subject":"SCI","stem":"광합성에 직접 필요한 것이 아닌 것은?","choices":[
+    {"key":"A","text":"이산화탄소"},{"key":"B","text":"물"},{"key":"C","text":"햇빛"},{"key":"D","text":"질소"}],
+    "answerKey":"D","explanation":"질소는 직접 반응물 아님"
+  },
+  { "id":"Q17","subject":"SOC","stem":"삼권분립의 구성이 아닌 것은?","choices":[
+    {"key":"A","text":"입법"},{"key":"B","text":"사법"},{"key":"C","text":"행정"},{"key":"D","text":"감찰"}],
+    "answerKey":"D","explanation":"전통적 삼권분립은 입법·행정·사법"
+  },
+  { "id":"Q18","subject":"GEN","stem":"세계에서 사용 인구가 가장 많은 언어는? (모어+제2언어)","choices":[
+    {"key":"A","text":"영어"},{"key":"B","text":"중국어(표준)"},
+    {"key":"C","text":"스페인어"},{"key":"D","text":"힌디어"}],
+    "answerKey":"A","explanation":"모어는 중국어가 많지만, 전체 사용 인구는 영어가 최다로 집계되는 경우가 많음"
+  },
+  { "id":"Q19","subject":"MATH","stem":"등식 2x=12 에서 x는?","choices":[
+    {"key":"A","text":"5"},{"key":"B","text":"6"},{"key":"C","text":"7"},{"key":"D","text":"8"}],
+    "answerKey":"B","explanation":"2x=12 → x=6? (정답 수정) → x=6은 B입니다" 
+  },
+  { "id":"Q20","subject":"ENG","stem":"동의어: \"quick\"와 가장 가까운 것은?","choices":[
+    {"key":"A","text":"slow"},{"key":"B","text":"rapid"},{"key":"C","text":"heavy"},{"key":"D","text":"quiet"}],
+    "answerKey":"B","explanation":"quick ≈ rapid"
   }
 ]
