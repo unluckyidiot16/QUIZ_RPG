@@ -329,7 +329,8 @@ export default function Play() {
       pushDamage(playerDmgToEnemy);     // "-12" 팝업
       triggerShake(100);                // 짧은 흔들림
       if (nextEnemy > 0) {
-        setEnemyState('Hit');           // 피격 점멸
+        setEnemyState('Hit');
+        if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
         const hitFps = FPS_BY_STATE.Hit;
         const hitCycle = Math.ceil((1000 / hitFps) * Math.max(1, stateFrameCount(enemyDef.sprite, 'Hit')));
         const hitHold = Math.max(220, Math.min(360, hitCycle)); // 0.22~0.36s 사이
@@ -383,46 +384,21 @@ export default function Play() {
             (isCorrect ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…')
       );
       if (battleOutcome === true) {
-        // Die 모션을 ~0.5s 보여주고 이동
         const dieFps = FPS_BY_STATE.Die;
         const dieMs = Math.max(520, Math.ceil((1000 / dieFps) * stateFrameCount(enemyDef.sprite, 'Die')));
-        await new Promise((r) => setTimeout(r, dieMs));
+        await new Promise((r) => setTimeout(r, dieMs));  // Die 끝까지
       } else if (battleOutcome === false) {
-        // ⬇️ 패배 시에도 공격 애니메이션이 끝난 다음 이동
         const atkFps = FPS_BY_STATE.Attack;
         const atkCycle = Math.ceil((1000 / atkFps) * stateFrameCount(enemyDef.sprite, 'Attack'));
-        const atkHold = Math.max(450, atkCycle) + 140; // 점멸 140ms 포함
+        const atkHold = Math.max(450, atkCycle) + 140;  // Attack + 점멸
         await new Promise((r) => setTimeout(r, atkHold));
-        await finalizeRun({forcedClear: battleOutcome});
-        return;
       }
-
-      setMsg(isCorrect ? '정답!' : '오답 💦');
-      setIdx(idx + 1);
+      await finalizeRun({forcedClear: battleOutcome});  // ✅ 항상 여기서 한 번만
+      return;
     }
-
-    async function finalizeRun(opts?: { forcedClear?: boolean }) {
-      setMsg('결과 정리 중…');
-      const turns = turnsRef.current;
-      const total = Math.max(1, questions.length);
-      const score = turns.filter(t => t.correct).length;
-      const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
-      const passByScore = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
-      // 전투 즉시판정이 있으면 우선, 없으면 점수 기준
-      const cleared = (typeof opts?.forcedClear === 'boolean') ? opts!.forcedClear : passByScore;
-
-      const summary = {cleared, turns: total, durationSec};
-      localStorage.setItem('qd:lastResult', JSON.stringify(summary));
-      localStorage.setItem('qd:lastPack', pack);
-      localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
-
-      try {
-        await proofRef.current?.summary?.({cleared, score, total} as any);
-      } catch {
-      }
-
-      nav('/result', {replace: true}); // ← 이동
-    }
+    // 계속 진행
+    setMsg(isCorrect ? '정답!' : '오답 💦');
+    setIdx(idx + 1);
 
 // 5) 키보드 입력(ABCD)
     useEffect(() => {
@@ -566,4 +542,28 @@ export default function Play() {
       </>
     );
   }
+
+  async function finalizeRun(opts?: { forcedClear?: boolean }) {
+    setMsg('결과 정리 중…');
+    const turns = turnsRef.current;
+    const total = Math.max(1, questions.length);
+    const score = turns.filter(t => t.correct).length;
+    const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
+    const passByScore = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
+    // 전투 즉시판정이 있으면 우선, 없으면 점수 기준
+    const cleared = (typeof opts?.forcedClear === 'boolean') ? opts!.forcedClear : passByScore;
+
+    const summary = {cleared, turns: total, durationSec};
+    localStorage.setItem('qd:lastResult', JSON.stringify(summary));
+    localStorage.setItem('qd:lastPack', pack);
+    localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
+
+    try {
+      await proofRef.current?.summary?.({cleared, score, total} as any);
+    } catch {
+    }
+
+    nav('/result', {replace: true}); // ← 이동
+  }
+
 }
