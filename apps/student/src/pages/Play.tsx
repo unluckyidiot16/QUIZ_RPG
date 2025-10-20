@@ -109,6 +109,8 @@ export default function Play() {
   const [shake, setShake] = useState(false);
   const [pops, setPops] = useState<Array<{ id: number; val: number }>>([]);
   const popIdRef = useRef(0);
+  const [hitBorder, setHitBorder] = useState<null | 'inner' | 'outer'>(null);
+
   const triggerShake = (ms = 120) => { setShake(true); window.setTimeout(() => setShake(false), ms); };
   const pushDamage = (val: number) => {
     const id = ++popIdRef.current;
@@ -308,6 +310,8 @@ export default function Play() {
     //   - 오답(적 공격): Attack 짧게 재생
     if (!isCorrect && nextPlayer > 0) {
       setEnemyState('Attack');
+      setHitBorder('inner');        // 또는 'inner'로 취향 선택
+      setTimeout(() => setHitBorder(null), 120);
       if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
       attackTimerRef.current = window.setTimeout(() => {
         setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
@@ -411,8 +415,8 @@ export default function Play() {
       <div className="p-3 border rounded mb-2">
         <div className="text-sm font-medium">전투(주2 테스트)</div>
         {/* Enemy visual */}
-        <div className="flex items-end justify-center my-2 min-h-[320px] md:min-h-[480px]"  style={{ transform: shake ? 'translateX(3px)' : 'translateX(0)', transition: 'transform 80ms' }}
-        >
+        <div className="relative flex items-end justify-center my-2 min-h-[320px] md:min-h-[480px]"
+             style={{ transform: shake ? 'translateX(3px)' : 'translateX(0)', transition: 'transform 80ms' }}>
           <img
             src={frameUrl || enemyImgUrl}   // 애니메이터 우선, 실패 시 1프레임
             alt={enemyDef.name}
@@ -426,6 +430,35 @@ export default function Play() {
             } as React.CSSProperties}
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = enemyImgUrl; }} // 폴백
           />
+
+          {/* 🔴 피격 테두리(outer/inner) */}
+          {hitBorder && (
+            <>
+              {/* 바깥 테두리 */}
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  inset: '-8px',
+                    border: hitBorder === 'outer' ? '4px solid rgba(239,68,68,0.9)' : 'none',
+                    borderRadius: '12px',
+                    boxShadow: '0 0 16px rgba(239,68,68,0.6)',
+                    transition: 'opacity 120ms',
+                }}
+              />
+              {/* 안쪽 테두리(이미지 영역 기준) */}
+              <div
+                className="pointer-events-none absolute"
+                style={{
+                  width: 'min(60vw, 460px)',
+                    height: 'min(60vw, 460px)',
+                    border: hitBorder === 'inner' ? '4px solid rgba(239,68,68,0.85)' : 'none',
+                    borderRadius: '12px',
+                    transition: 'opacity 120ms',
+                }}
+              />
+            </>
+          )}
+          
           {/* 데미지 팝업 */}
           {pops.map(p => (
             <div
