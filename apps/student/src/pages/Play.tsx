@@ -395,8 +395,8 @@ export default function Play() {
           <img
             src={frameUrl || enemyImgUrl}   // 애니메이터 우선, 실패 시 1프레임
             alt={enemyDef.name}
-            width={360}
-            height={360}
+            width={230}
+            height={230}
             style={{
               imageRendering: 'pixelated',
               maxWidth: 'min(60vw, 360px)',
