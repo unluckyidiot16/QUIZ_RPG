@@ -193,8 +193,8 @@ export default function Play() {
     (async () => {
       try {
         setLoading(true);
-        const url = new URL(`packs/${pack}.json`, location.search).toString();
-        const res = await fetch(url, { cache: 'no-store', signal: ac.signal });
+        const url = resolvePackUrl(pack);
+        const res = await fetch(url, { cache: 'reload', signal: ac.signal });
         let rawList: any = [];
         if (res.ok) rawList = await res.json();
         else rawList = [{ id: 'sample-1', stem: '샘플 문항입니다. A를 선택하세요.', choices: ['A','B','C','D'], answerKey: 'A' }];
