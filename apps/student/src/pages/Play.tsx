@@ -9,7 +9,7 @@ import { resolveElemsFromQuery, mult } from '../game/combat/affinity';
 import { actByPattern, PatternKey, applyShieldToDamage } from '../game/combat/patterns';
 import { MAX_HP, PLAYER_BASE_DMG, PLAYER_CRIT_CHANCE } from '../game/combat/constants';
 import { pickEnemyByQuery } from '../game/combat/enemy';
-import { enemyFrameUrl, stateFrameCount } from '../game/combat/sprites';
+import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../game/combat/sprites';
 import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
 import type { EnemyState } from '../game/combat/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
@@ -104,6 +104,7 @@ export default function Play() {
   const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [enemyState, setEnemyState] = useState<EnemyState>('Move');
   const attackTimerRef = useRef<number | null>(null);
+  const hitTimerRef    = useRef<number | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('로딩 중…');
@@ -125,7 +126,7 @@ export default function Play() {
     // 적 교체 시 HP 재설정
     setEnemyHP(Math.round(MAX_HP * (enemyDef.hpMul ?? 1)));
     // 스프라이트 프리로드
-    (['Move','Attack','Die'] as const).forEach(state => {
+    (['Move','Attack','Die','Hit'] as const).forEach(state => {
       const max = stateFrameCount(enemyDef.sprite, state);
       for (let i = 1; i <= max; i++) {
         const img = new Image();
@@ -137,11 +138,12 @@ export default function Play() {
   const enemyImgUrl = useMemo(() => enemyFrameUrl(enemyDef.sprite, 'Move', 1), [enemyDef]);
 
    // 상태별 프레임 애니메이션 (Die는 루프 정지)
+  const looping = enemyState === 'Move';
   const { frameUrl } = useSpriteAnimator(
     enemyDef.sprite,
     enemyState,
-    +   8,                 // fps: 6~10 권장
-    enemyState !== 'Die'
+    8,        // fps
+    looping
   );
   
   const { player: playerElem, enemy: enemyElemQS } = resolveElemsFromQuery(search);
@@ -264,17 +266,22 @@ export default function Play() {
     // 1) 적 행동(오답 시 적용될 피해, 실드/스파이크 플래그)
     const enemyAct = actByPattern(pattern, { rng: () => rng.next(), turn });
 
-    if (!isCorrect && enemyHP > 0) {
-      setEnemyState('Attack');
-      if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
-      attackTimerRef.current = window.setTimeout(() => {
-        setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
-        }, 250); // 0.25s 공격 모션
-    }
-    
     // 2) 플레이어 공격(정답일 때만)
     let playerDmgToEnemy = 0;
     let spikeDmgToPlayer = 0;
+
+    // 3) 피해 적용
+    const nextEnemy  = Math.max(0, enemyHP  - playerDmgToEnemy);
+    const nextPlayer = Math.max(0, playerHP - (isCorrect ? 0 : enemyAct.dmgToPlayer) - spikeDmgToPlayer);
+
+
+    if (isCorrect && playerDmgToEnemy > 0 && nextEnemy > 0) {
+      setEnemyState('Hit');
+      if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+      hitTimerRef.current = window.setTimeout(() => {
+        setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
+        }, 150);
+    }
 
     if (isCorrect) {
       const playerCrit = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(PLAYER_BASE_DMG * 0.5) : 0;
@@ -283,11 +290,7 @@ export default function Play() {
       playerDmgToEnemy = applyShieldToDamage(withAff, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
     }
-
-    // 3) 피해 적용
-    const nextEnemy  = Math.max(0, enemyHP  - playerDmgToEnemy);
-    const nextPlayer = Math.max(0, playerHP - (isCorrect ? 0 : enemyAct.dmgToPlayer) - spikeDmgToPlayer);
-
+  
     setEnemyHP(nextEnemy);
     setPlayerHP(nextPlayer);
     
@@ -361,8 +364,11 @@ export default function Play() {
   }, [q]);
 
   useEffect(() => {
-    return () => { if (attackTimerRef.current) clearTimeout(attackTimerRef.current); };
-  }, []);
+    return () => {
+      if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
+      if (hitTimerRef.current)    clearTimeout(hitTimerRef.current);
+    };  
+    }, []);
 
   // ───────────── 렌더 ─────────────
   if (loading) return <div className="p-6">로딩…</div>;
@@ -383,13 +389,18 @@ export default function Play() {
       <div className="p-3 border rounded mb-2">
         <div className="text-sm font-medium">전투(주2 테스트)</div>
         {/* Enemy visual */}
-        <div className="flex items-end justify-center h-40 my-2">
+        <div className="flex items-end justify-center my-2 min-h-[320px] md:min-h-[480px]">
           <img
             src={frameUrl || enemyImgUrl}   // 애니메이터 우선, 실패 시 1프레임
             alt={enemyDef.name}
-            width={128}
-            height={128}
-            style={{ imageRendering: 'pixelated' as any }}
+            width={360}
+            height={360}
+            style={{
+              imageRendering: 'pixelated',
+              maxWidth: 'min(60vw, 460px)',
+              maxHeight: 'min(60vw, 460px)',
+                ...(hitTintStyle(enemyState) || {}),
+            } as React.CSSProperties}
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = enemyImgUrl; }} // 폴백
           />
         </div>

@@ -4,8 +4,8 @@ import type { PatternKey } from './patterns';
 
 export type EnemySprite = {
   type: 'Slime' | 'Goblin';      // 폴더명 (Enemy/<type>/…)
-  variant: 'Blue' | 'Green' | 'Red' | string; // 파일명 내 색상 표기
-  frames?: Partial<Record<'Move'|'Attack'|'Die', number>>; // 각 상태 프레임 수(없으면 1)
+  variant: 'Blue' | 'Green' | 'Red' | string;
+  frames?: Partial<Record<'Move'|'Attack'|'Die'|'Hit', number>>;
 };
 
 export type EnemyDef = {
@@ -20,15 +20,15 @@ export type EnemyDef = {
 export const ENEMIES: EnemyDef[] = [
   {
     id: 'E01', name: 'Blue Slime', elem: 'SCI', pattern: 'Shield', hpMul: 1.0,
-    sprite: { type: 'Slime', variant: 'Blue', frames: { Move: 6, Attack: 8, Die: 8 } }
+    sprite: { type: 'Slime', variant: 'Blue', frames: { Move: 6, Attack: 8, Die: 8, Hit: 2 } }
   },
   {
     id: 'E02', name: 'Goblin', elem: 'ENG', pattern: 'Aggressive', hpMul: 1.1,
-    sprite: { type: 'Goblin', variant: 'Green', frames: { Move: 4, Attack: 4, Die: 4 } }
+    sprite: { type: 'Goblin', variant: 'Green', frames: { Move: 4, Attack: 4, Die: 4, Hit: 2 } }
   },
   {
     id: 'E03', name: 'Thorn Slime', elem: 'SOC', pattern: 'Spiky', hpMul: 0.9,
-    sprite: { type: 'Slime', variant: 'Red', frames: { Move: 4, Attack: 4, Die: 4 } }
+    sprite: { type: 'Slime', variant: 'Red', frames: { Move: 4, Attack: 4, Die: 4, Hit: 2 } }
   },
 ];
 
