@@ -95,7 +95,7 @@ export default function Play() {
   const [idx, setIdx] = useState(0);
   const q = questions[idx] || null;
 
-  const turnsRef = useRef<Turn[]>([]);
+  const turnsRef = useRef<TurnLog[]>([]);
   const startedRef = useRef(false);
   const startAtRef = useRef<number>(0);
   const proofRef = useRef<any>(null); // 동적 import 대응
@@ -240,9 +240,6 @@ export default function Play() {
 
     setEnemyHP(nextEnemy);
     setPlayerHP(nextPlayer);
-    
-    // 4) 전투 로그
-    const turnsRef = useRef<TurnLog[]>([]);
     
     turnsRef.current.push({
       id: q.id,
