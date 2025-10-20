@@ -141,6 +141,23 @@ export default function Play() {
     Hit: 2,      
   };
 
+  const spriteRef = useRef<HTMLImageElement | null>(null);
+  const [spriteH, setSpriteH] = useState(0);
+  useEffect(() => {
+    const el = spriteRef.current;
+    if (!el) return;
+    const set = () => setSpriteH(el.clientHeight || 0);
+    set(); // 초기 1회
+    const ro = 'ResizeObserver' in window ? new ResizeObserver(set) : null;
+    ro?.observe(el);
+    window.addEventListener('resize', set);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', set);
+    };
+    }, [enemyDef]); // 적 교체 시 재계산
+
+
   useEffect(() => {
     // 적 교체 시 HP 재설정
     setEnemyHP(Math.round(MAX_HP * (enemyDef.hpMul ?? 1)));
@@ -424,19 +441,27 @@ export default function Play() {
 
   return (
     <>
+      {/* damage popup: rise+fade */}
+      <style>{`
+      @keyframes qd-pop-rise {
+        from { transform: translate(-50%, 0); opacity: 1; }
+        to   { transform: translate(-50%, -24px); opacity: 0; }
+      }
+    `}</style>
     <div className="p-6 max-w-xl mx-auto space-y-4">
       {/* 진행도 */}
       <div className="h-2 bg-slate-800 rounded overflow-hidden">
         <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
       </div>
       <div className="text-sm opacity-80">{idx + 1} / {total}</div>
-
+      
       <div className="p-3 border rounded mb-2">
         <div className="text-sm font-medium">전투(주2 테스트)</div>
         {/* Enemy visual */}
         <div className="relative flex items-end justify-center my-2 min-h-[320px] md:min-h-[480px]"
              style={{ transform: shake ? 'translateX(3px)' : 'translateX(0)', transition: 'transform 80ms' }}>
           <img
+            ref={spriteRef}
             src={frameUrl || enemyImgUrl}   // 애니메이터 우선, 실패 시 1프레임
             alt={enemyDef.name}
             width={460}
@@ -482,8 +507,19 @@ export default function Play() {
           {pops.map(p => (
             <div
               key={p.id}
-              className="absolute -top-6 font-bold drop-shadow text-red-500"
-              style={{ left: '50%', transform: 'translateX(-50%)' }}
+              className="pointer-events-none absolute font-extrabold select-none"
+              style={{
+                left: '50%',
+                  bottom: `${Math.max(0, Math.round((spriteH || 420) / 3))}px`, // 스프라이트 높이의 2/3 지점
+                  transform: 'translateX(-50%)',
+                // 뷰포트 기반 반응형 크기
+                  fontSize: 'clamp(16px, 3.6vw, 28px)',
+                  lineHeight: 1,
+                  color: 'rgb(239 68 68)', // tailwind red-500
+                  textShadow: '0 1px 0 rgba(0,0,0,.25), 0 0 8px rgba(239,68,68,.6)',
+                  animation: 'qd-pop-rise 650ms ease-out forwards',
+                  willChange: 'transform, opacity',
+              }}
             >
               -{p.val}
             </div>
