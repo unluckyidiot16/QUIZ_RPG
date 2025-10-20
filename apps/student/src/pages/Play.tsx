@@ -9,6 +9,9 @@ import { resolveElemsFromQuery, mult } from '../game/combat/affinity';
 import { actByPattern, PatternKey, applyShieldToDamage } from '../game/combat/patterns';
 import { MAX_HP, PLAYER_BASE_DMG, PLAYER_CRIT_CHANCE } from '../game/combat/constants';
 import { pickEnemyByQuery } from '../game/combat/enemy';
+import { enemyFrameUrl, stateFrameCount } from '../game/combat/sprites';
+import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
+import type { EnemyState } from '../game/combat/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
 import type { Elem } from '../game/combat/affinity';
 
@@ -30,6 +33,8 @@ type TurnLog = {
   spikeDmgToPlayer: number;
   hpAfter: { player: number; enemy: number };
 };
+
+const [enemyState, setEnemyState] = useState<EnemyState>('Move');
 
 function usePackParam() {
   const qs = new URLSearchParams(location.search);
@@ -119,11 +124,22 @@ export default function Play() {
       // 마운트 시 1회: 적 HP를 배수로 스케일
     const base = Math.round(MAX_HP * (enemyDef.hpMul ?? 1));
     setEnemyHP(base);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const preload = (state: 'Move'|'Attack'|'Die') => {
+      const max = stateFrameCount(enemyDef.sprite, state);
+      for (let i=1;i<=max;i++){
+        const img = new Image();
+        img.src = enemyFrameUrl(enemyDef.sprite, state, i);
+      }
+    };
+    preload('Move');
     }, []);
 
 // URL 파라미터 + 적 카탈로그 결정
   const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
+  const enemyImgUrl = useMemo(() => {
+    // 기본 표시는 Move 1프레임
+    return enemyFrameUrl(enemyDef.sprite, 'Move', 1);
+  }, [enemyDef]);
   const { player: playerElem, enemy: enemyElemQS } = resolveElemsFromQuery(search);
   const enemyParam = search.get('e');                   // 'e'가 없으면 카탈로그 속성 사용
   const resolvedEnemyElem = enemyParam ? enemyElemQS : enemyDef.elem;
@@ -243,6 +259,11 @@ export default function Play() {
 
     // 1) 적 행동(오답 시 적용될 피해, 실드/스파이크 플래그)
     const enemyAct = actByPattern(pattern, { rng: () => rng.next(), turn });
+
+    if (!isCorrect && enemyHP > 0) {
+      setEnemyState('Attack');
+      setTimeout(() => setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move')), 250);
+    }
     
     // 2) 플레이어 공격(정답일 때만)
     let playerDmgToEnemy = 0;
@@ -277,6 +298,9 @@ export default function Play() {
       hpAfter: { player: nextPlayer, enemy: nextEnemy },
     });
 
+    if (nextEnemy <= 0) {
+      setEnemyState('Die');
+    }
 
     // 5) 진행/종료
     const isBattleEnd    = (nextEnemy <= 0 || nextPlayer <= 0);
@@ -348,6 +372,17 @@ export default function Play() {
 
       <div className="p-3 border rounded mb-2">
         <div className="text-sm font-medium">전투(주2 테스트)</div>
+        {/* Enemy visual */}
+        <div className="flex items-end justify-center h-40 my-2">
+          <img
+            src={enemyImgUrl}
+            alt={enemyDef.name}
+            width={128}
+            height={128}
+            style={{ imageRendering: 'pixelated' as any }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
         <div className="text-xs opacity-70">
           적:{enemyDef.name} · P:{playerElem} vs E:{resolvedEnemyElem} / 패턴:{pattern} / 턴:{turnRef.current}
         </div>
