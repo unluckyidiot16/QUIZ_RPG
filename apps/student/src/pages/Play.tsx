@@ -108,12 +108,12 @@ export default function Play() {
   const search = new URLSearchParams(window.location.search);
   const { player: playerElem, enemy: enemyElem } = resolveElemsFromQuery(search);
   const pattern: PatternKey = (search.get('pat') as PatternKey) ?? 'Aggressive';
-
+  
 // 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
   const runToken = useMemo(() => /* 기존 런 식별자 사용 */ (localStorage.getItem('runToken') ?? 'dev'), []);
   const rngRef = useRef(makeRng(runToken));
   const turnRef = useRef(1);
-
+  
   // 간단 HP Bar(임시)
   const HPBar = ({ value, label }: { value:number; label:string }) => {
     const pct = Math.max(0, Math.min(100, (value / MAX_HP) * 100));
@@ -213,8 +213,6 @@ export default function Play() {
   }, [q, idx]);
 
   // 4) 답안 처리
-
-  // 4) 답안 처리
   async function onPick(pick: Choice['key']) {
     if (!q) return;
     const isCorrect = (pick === q.answerKey);
@@ -274,7 +272,7 @@ export default function Play() {
           battleOutcome === false ? '패배… 결과 정리 중…' :
             (isCorrect ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…')
       );
-      await finalizeRun({ forcedClear: battleOutcome });
+      await finalizeRun({ forcedClear: battleOutcome });  // ← 이게 핵심
       return;
     }
 
@@ -298,7 +296,8 @@ export default function Play() {
     localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
 
     try { await proofRef.current?.summary?.({ cleared, score, total } as any); } catch {}
-    nav('/result');
+
+    nav('/result', { replace: true }); // ← 이동
   }
 
 // 5) 키보드 입력(ABCD)
