@@ -34,8 +34,6 @@ type TurnLog = {
   hpAfter: { player: number; enemy: number };
 };
 
-const [enemyState, setEnemyState] = useState<EnemyState>('Move');
-
 function usePackParam() {
   const qs = new URLSearchParams(location.search);
   return qs.get('pack') || 'sample';
@@ -104,7 +102,8 @@ export default function Play() {
   
   const location = useLocation();
   const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
-
+  const [enemyState, setEnemyState] = useState<EnemyState>('Move');
+  
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('로딩 중…');
 
@@ -119,23 +118,19 @@ export default function Play() {
 
   const [playerHP, setPlayerHP] = useState(MAX_HP);
   const [enemyHP,  setEnemyHP]  = useState(MAX_HP);
+  const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
   
   useEffect(() => {
-      // 마운트 시 1회: 적 HP를 배수로 스케일
-    const base = Math.round(MAX_HP * (enemyDef.hpMul ?? 1));
-    setEnemyHP(base);
-    const preload = (state: 'Move'|'Attack'|'Die') => {
-      const max = stateFrameCount(enemyDef.sprite, state);
-      for (let i=1;i<=max;i++){
-        const img = new Image();
-        img.src = enemyFrameUrl(enemyDef.sprite, state, i);
-      }
-    };
-    preload('Move');
-    }, []);
+    // 적 교체 시 HP 재설정
+    setEnemyHP(Math.round(MAX_HP * (enemyDef.hpMul ?? 1)));
+    // 스프라이트 프리로드(기본 Move)
+    const max = stateFrameCount(enemyDef.sprite, 'Move');
+    for (let i = 1; i <= max; i++) {
+      const img = new Image();
+      img.src = enemyFrameUrl(enemyDef.sprite, 'Move', i);
+    }
+    }, [enemyDef]);
 
-// URL 파라미터 + 적 카탈로그 결정
-  const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
   const enemyImgUrl = useMemo(() => {
     // 기본 표시는 Move 1프레임
     return enemyFrameUrl(enemyDef.sprite, 'Move', 1);
