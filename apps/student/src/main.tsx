@@ -36,7 +36,9 @@ const router = createBrowserRouter([
   // ✅ 차단/토큰 화면은 헤더 없이
   { path: '/token/:id', element: <TokenGatePage/> },
   { path: '*', element: <NotFound /> },
-]);
+], {
+    basename: import.meta.env.BASE_URL, // 서브경로 배포 시 정적/라우트 모두 일치
+  });
 
 function AppGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);

@@ -47,6 +47,14 @@ function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): 
   return null;
 }
 
+function resolvePackUrl(pack: string) {
+  const base = import.meta.env.BASE_URL || '/';
+  const url = new URL(base, window.location.origin);      // ex) https://site.com/app/
+  url.pathname = url.pathname.replace(/\/$/, '') + `/packs/${pack}.json`; // .../packs/sample.v3.json
+  return url.toString();
+}
+
+
 function normalizeQuestion(raw: any, i: number): Question | null {
   if (!raw) return null;
 
@@ -138,6 +146,7 @@ export default function Play() {
       </div>
     </div>
     );}
+  
   
   // 1) QR 토큰 로그인 → 런 발급 → Proof 로깅 준비
   useEffect(() => {
