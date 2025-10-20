@@ -1,26 +1,132 @@
 [
   {
     "id": "Q1",
+    "subject": "MATH",
     "stem": "1/2 = ?",
     "choices": [
-      {
-        "key": "A",
-        "text": "0.5"
-      },
-      {
-        "key": "B",
-        "text": "0.25"
-      },
-      {
-        "key": "C",
-        "text": "0.75"
-      },
-      {
-        "key": "D",
-        "text": "0.2"
-      }
+      { "key": "A", "text": "0.5" },
+      { "key": "B", "text": "0.25" },
+      { "key": "C", "text": "0.75" },
+      { "key": "D", "text": "0.2" }
     ],
     "answerKey": "A",
-    "explanation": "1/2 = 0.5"
+    "explanation": "1 ÷ 2 = 0.5"
+  },
+  {
+    "id": "Q2",
+    "subject": "ENG",
+    "stem": "Choose the correct past form: \"I ___ to school yesterday.\"",
+    "choices": [
+      { "key": "A", "text": "go" },
+      { "key": "B", "text": "went" },
+      { "key": "C", "text": "gone" },
+      { "key": "D", "text": "going" }
+    ],
+    "answerKey": "B",
+    "explanation": "과거형: go → went"
+  },
+  {
+    "id": "Q3",
+    "subject": "KOR",
+    "stem": "다음 중 맞춤법이 옳은 것은?",
+    "choices": [
+      { "key": "A", "text": "왠일이야" },
+      { "key": "B", "text": "웬일이야" },
+      { "key": "C", "text": "왠 일이야" },
+      { "key": "D", "text": "웬 일이야" }
+    ],
+    "answerKey": "B",
+    "explanation": "‘웬일’이 맞음(의문을 나타내는 ‘웬’)."
+  },
+  {
+    "id": "Q4",
+    "subject": "SCI",
+    "stem": "물의 끓는점(해수면 기준)은?",
+    "choices": [
+      { "key": "A", "text": "50℃" },
+      { "key": "B", "text": "80℃" },
+      { "key": "C", "text": "100℃" },
+      { "key": "D", "text": "120℃" }
+    ],
+    "answerKey": "C",
+    "explanation": "해수면 표준 대기압에서 100℃"
+  },
+  {
+    "id": "Q5",
+    "subject": "SOC",
+    "stem": "대한민국의 수도는?",
+    "choices": [
+      { "key": "A", "text": "서울" },
+      { "key": "B", "text": "부산" },
+      { "key": "C", "text": "인천" },
+      { "key": "D", "text": "대전" }
+    ],
+    "answerKey": "A",
+    "explanation": "수도는 서울"
+  },
+  {
+    "id": "Q6",
+    "subject": "GEN",
+    "stem": "다음 중 포유류가 아닌 것은?",
+    "choices": [
+      { "key": "A", "text": "고래" },
+      { "key": "B", "text": "박쥐" },
+      { "key": "C", "text": "상어" },
+      { "key": "D", "text": "사자" }
+    ],
+    "answerKey": "C",
+    "explanation": "상어는 어류"
+  },
+  {
+    "id": "Q7",
+    "subject": "MATH",
+    "stem": "3×7 = ?",
+    "choices": [
+      { "key": "A", "text": "20" },
+      { "key": "B", "text": "21" },
+      { "key": "C", "text": "24" },
+      { "key": "D", "text": "27" }
+    ],
+    "answerKey": "B",
+    "explanation": "3×7=21"
+  },
+  {
+    "id": "Q8",
+    "subject": "ENG",
+    "stem": "Fill in: \"There ___ a book on the desk.\"",
+    "choices": [
+      { "key": "A", "text": "is" },
+      { "key": "B", "text": "are" },
+      { "key": "C", "text": "be" },
+      { "key": "D", "text": "am" }
+    ],
+    "answerKey": "A",
+    "explanation": "단수 주어 → is"
+  },
+  {
+    "id": "Q9",
+    "subject": "SCI",
+    "stem": "지구가 태양 주위를 도는 데 걸리는 시간은?",
+    "choices": [
+      { "key": "A", "text": "약 1일" },
+      { "key": "B", "text": "약 1달" },
+      { "key": "C", "text": "약 1년" },
+      { "key": "D", "text": "약 10년" }
+    ],
+    "answerKey": "C",
+    "explanation": "공전 주기 약 365일"
+  },
+  {
+    "id": "Q10",
+    "subject": "KOR",
+    "stem": "띄어쓰기: \"할 수 있다\"의 맞는 표기는?",
+    "choices": [
+      { "key": "A", "text": "할수있다" },
+      { "key": "B", "text": "할 수 있다" },
+      { "key": "C", "text": "할 수있다" },
+      { "key": "D", "text": "할수 있다" }
+    ],
+    "answerKey": "B",
+    "explanation": "보조 용언 ‘수 있다’는 띄어 씀"
   }
 ]
