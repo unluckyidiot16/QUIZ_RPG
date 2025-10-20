@@ -103,6 +103,7 @@ export default function Play() {
   const location = useLocation();
   const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [enemyState, setEnemyState] = useState<EnemyState>('Move');
+  const attackTimerRef = useRef<number | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('로딩 중…');
@@ -119,22 +120,30 @@ export default function Play() {
   const [playerHP, setPlayerHP] = useState(MAX_HP);
   const [enemyHP,  setEnemyHP]  = useState(MAX_HP);
   const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
-  
+
   useEffect(() => {
     // 적 교체 시 HP 재설정
     setEnemyHP(Math.round(MAX_HP * (enemyDef.hpMul ?? 1)));
-    // 스프라이트 프리로드(기본 Move)
-    const max = stateFrameCount(enemyDef.sprite, 'Move');
-    for (let i = 1; i <= max; i++) {
-      const img = new Image();
-      img.src = enemyFrameUrl(enemyDef.sprite, 'Move', i);
-    }
+    // 스프라이트 프리로드
+    (['Move','Attack','Die'] as const).forEach(state => {
+      const max = stateFrameCount(enemyDef.sprite, state);
+      for (let i = 1; i <= max; i++) {
+        const img = new Image();
+        img.src = enemyFrameUrl(enemyDef.sprite, state, i);
+      }
+    });
     }, [enemyDef]);
 
-  const enemyImgUrl = useMemo(() => {
-    // 기본 표시는 Move 1프레임
-    return enemyFrameUrl(enemyDef.sprite, 'Move', 1);
-  }, [enemyDef]);
+  const enemyImgUrl = useMemo(() => enemyFrameUrl(enemyDef.sprite, 'Move', 1), [enemyDef]);
+
+   // 상태별 프레임 애니메이션 (Die는 루프 정지)
+  const { frameUrl } = useSpriteAnimator(
+    enemyDef.sprite,
+    enemyState,
+    +   8,                 // fps: 6~10 권장
+    enemyState !== 'Die'
+  );
+  
   const { player: playerElem, enemy: enemyElemQS } = resolveElemsFromQuery(search);
   const enemyParam = search.get('e');                   // 'e'가 없으면 카탈로그 속성 사용
   const resolvedEnemyElem = enemyParam ? enemyElemQS : enemyDef.elem;
@@ -257,7 +266,10 @@ export default function Play() {
 
     if (!isCorrect && enemyHP > 0) {
       setEnemyState('Attack');
-      setTimeout(() => setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move')), 250);
+      if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
+      attackTimerRef.current = window.setTimeout(() => {
+        setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
+        }, 250); // 0.25s 공격 모션
     }
     
     // 2) 플레이어 공격(정답일 때만)
@@ -348,6 +360,9 @@ export default function Play() {
     return () => window.removeEventListener('keydown', onKey);
   }, [q]);
 
+  useEffect(() => {
+    return () => { if (attackTimerRef.current) clearTimeout(attackTimerRef.current); };
+  }, []);
 
   // ───────────── 렌더 ─────────────
   if (loading) return <div className="p-6">로딩…</div>;
@@ -370,12 +385,12 @@ export default function Play() {
         {/* Enemy visual */}
         <div className="flex items-end justify-center h-40 my-2">
           <img
-            src={enemyImgUrl}
+            src={frameUrl || enemyImgUrl}   // 애니메이터 우선, 실패 시 1프레임
             alt={enemyDef.name}
             width={128}
             height={128}
             style={{ imageRendering: 'pixelated' as any }}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = enemyImgUrl; }} // 폴백
           />
         </div>
         <div className="text-xs opacity-70">
