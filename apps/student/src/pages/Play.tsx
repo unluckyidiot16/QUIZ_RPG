@@ -264,11 +264,17 @@ export default function Play() {
     // 5) 진행/종료
     const isBattleEnd    = (nextEnemy <= 0 || nextPlayer <= 0);
     const isLastQuestion = (idx + 1 >= questions.length);
+    // 전투 즉시판정: 적 0 → 승리, 플레이어 0 → 패배
+    const battleOutcome = nextEnemy <= 0 ? true : (nextPlayer <= 0 ? false : undefined);
     turnRef.current = turn + 1;
 
     if (isBattleEnd || isLastQuestion) {
-      setMsg(isCorrect ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…');
-      await finalizeRun();
+      setMsg(
+        battleOutcome === true  ? '승리! 결과 정리 중…' :
+          battleOutcome === false ? '패배… 결과 정리 중…' :
+            (isCorrect ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…')
+      );
+      await finalizeRun({ forcedClear: battleOutcome });
       return;
     }
 
@@ -276,14 +282,16 @@ export default function Play() {
     setIdx(idx + 1);
   }
 
-  async function finalizeRun() {
+  async function finalizeRun(opts?: { forcedClear?: boolean }) {
     setMsg('결과 정리 중…');
     const turns = turnsRef.current;
     const total = Math.max(1, questions.length);
     const score = turns.filter(t => t.correct).length;
     const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
-    const cleared = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
-
+    const passByScore = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
+      // 전투 즉시판정이 있으면 우선, 없으면 점수 기준
+    const cleared = (typeof opts?.forcedClear === 'boolean') ? opts!.forcedClear : passByScore;
+    
     const summary = { cleared, turns: total, durationSec };
     localStorage.setItem('qd:lastResult', JSON.stringify(summary));
     localStorage.setItem('qd:lastPack', pack);
