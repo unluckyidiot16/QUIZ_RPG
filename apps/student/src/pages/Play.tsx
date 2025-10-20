@@ -34,21 +34,6 @@ type TurnLog = {
   hpAfter: { player: number; enemy: number };
 };
 
-const [shake, setShake] = useState(false);
-const [pops, setPops] = useState<Array<{ id: number; val: number }>>([]);
-const popIdRef = useRef(0);
-
-const triggerShake = (ms = 120) => {   
-  setShake(true);
-  window.setTimeout(() => setShake(false), ms);
-};
-const pushDamage = (val: number) => {
-  const id = ++popIdRef.current;
-  setPops((a) => [...a, { id, val }]);
-  window.setTimeout(() => setPops((a) => a.filter((p) => p.id !== id)), 650);
-};
-
-
 function usePackParam() {
   const qs = new URLSearchParams(location.search);
   return qs.get('pack') || 'sample';
@@ -120,6 +105,16 @@ export default function Play() {
   const [enemyState, setEnemyState] = useState<EnemyState>('Move');
   const attackTimerRef = useRef<number | null>(null);
   const hitTimerRef    = useRef<number | null>(null);
+
+  const [shake, setShake] = useState(false);
+  const [pops, setPops] = useState<Array<{ id: number; val: number }>>([]);
+  const popIdRef = useRef(0);
+  const triggerShake = (ms = 120) => { setShake(true); window.setTimeout(() => setShake(false), ms); };
+  const pushDamage = (val: number) => {
+    const id = ++popIdRef.current;
+    setPops((a) => [...a, { id, val }]);
+    window.setTimeout(() => setPops((a) => a.filter((p) => p.id !== id)), 650);
+  };
   
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('로딩 중…');
@@ -297,15 +292,7 @@ export default function Play() {
     const nextPlayer = Math.max(0, playerHP - (isCorrect ? 0 : enemyAct.dmgToPlayer) - spikeDmgToPlayer);
 
     // 4) 애니메이션 상태 전환
-    //   - 정답(적 피격): Hit 짧게 점멸 (적이 아직 살아있을 때만)
-    if (isCorrect && playerDmgToEnemy > 0 && nextEnemy > 0) {
-      setEnemyState('Hit');
-      if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
-      hitTimerRef.current = window.setTimeout(() => {
-        setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
-      }, 150);
-    }
-
+    
     if (isCorrect && playerDmgToEnemy > 0) {
       pushDamage(playerDmgToEnemy);     // "-12" 팝업
       triggerShake(100);                // 짧은 흔들림
@@ -356,6 +343,10 @@ export default function Play() {
           battleOutcome === false ? '패배… 결과 정리 중…' :
             (isCorrect ? '정답! 결과 정리 중…' : '오답 💦 결과 정리 중…')
       );
+      if (battleOutcome === true) {
+        // Die 모션을 ~0.5s 보여주고 이동
+        await new Promise((r) => setTimeout(r, 480));
+      }
       await finalizeRun({ forcedClear: battleOutcome });
       return;
     }
@@ -425,12 +416,12 @@ export default function Play() {
           <img
             src={frameUrl || enemyImgUrl}   // 애니메이터 우선, 실패 시 1프레임
             alt={enemyDef.name}
-            width={230}
-            height={230}
+            width={460}
+            height={460}
             style={{
               imageRendering: 'pixelated',
-              maxWidth: 'min(60vw, 360px)',
-              maxHeight: 'min(60vw, 360px)',
+              maxWidth: 'min(60vw, 460px)',
+              maxHeight: 'min(60vw, 460px)',
                 ...(hitTintStyle(enemyState) || {}),
             } as React.CSSProperties}
             onError={(e) => { (e.currentTarget as HTMLImageElement).src = enemyImgUrl; }} // 폴백
