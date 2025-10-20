@@ -319,16 +319,16 @@ export default function Play() {
     //   - 오답(적 공격): Attack 짧게 재생
     if (!isCorrect && nextPlayer > 0) {
       setEnemyState('Attack');
-      setHitBorder('outer');        // 또는 'inner'로 취향 선택
-      setTimeout(() => setHitBorder(null), 120);
       if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
       const atkFps = FPS_BY_STATE.Attack;
       const atkCycle = Math.ceil((1000 / atkFps) * stateFrameCount(enemyDef.sprite, 'Attack')); // 한 바퀴
       const atkHold = Math.max(450, atkCycle); // 최소 450ms 이상
       attackTimerRef.current = window.setTimeout(() => {
+        setHitBorder('outer');        // 또는 'inner'로 취향 선택
+        setTimeout(() => setHitBorder(null), 200);
+        triggerShake(120);
         setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
         }, atkHold);
-      triggerShake(100);
     }
     //   - 적 사망: Die 고정
     if (nextEnemy <= 0) {
@@ -364,7 +364,12 @@ export default function Play() {
         const dieFps = FPS_BY_STATE.Die;
         const dieMs = Math.max(520, Math.ceil((1000 / dieFps) * stateFrameCount(enemyDef.sprite, 'Die')));
         await new Promise((r) => setTimeout(r, dieMs));
-      }
+      } else if (battleOutcome === false) {
+        // ⬇️ 패배 시에도 공격 애니메이션이 끝난 다음 이동
+        const atkFps = FPS_BY_STATE.Attack;
+        const atkCycle = Math.ceil((1000 / atkFps) * stateFrameCount(enemyDef.sprite, 'Attack'));
+        const atkHold = Math.max(450, atkCycle) + 140; // 점멸 140ms 포함
+        await new Promise((r) => setTimeout(r, atkHold));
       await finalizeRun({ forcedClear: battleOutcome });
       return;
     }
