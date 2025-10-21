@@ -18,7 +18,6 @@ import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
 
 
-
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
 type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
 type Turn = { id: string; pick: Choice['key']; correct: boolean };
@@ -156,6 +155,7 @@ export default function Play() {
 
   const spriteRef = useRef<HTMLImageElement | null>(null);
   const [spriteH, setSpriteH] = useState(0);
+  
   useEffect(() => {
     const el = spriteRef.current;
     if (!el) return;
@@ -202,7 +202,7 @@ export default function Play() {
       : 'Aggressive';
 
 // 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
-  const runToken = useMemo(() => /* 기존 런 식별자 사용 */ (localStorage.getItem('runToken') ?? 'dev'), []);
+  const runToken = useMemo(() => (localStorage.getItem('qd:runToken') ?? 'dev'), []);
   const rngRef = useRef(makeRng(runToken));
   const turnRef = useRef(1);
 
@@ -482,6 +482,8 @@ export default function Play() {
     const rewards = await applyDrops(stageDropTable(stage), `${stage.id}:${clearCount}`);
     if (cleared) recordStageClear(stage.id);
 
+    localStorage.setItem('qd:lastRewards', JSON.stringify(rewards));
+    localStorage.setItem('qd:lastStage', stage.id);
 
     try {
       await proofRef.current?.summary?.({cleared, score, total} as any);
@@ -645,7 +647,6 @@ export default function Play() {
               </div>
             </div>
           )}
-
           <div className="text-emerald-400">{msg}</div>
         </div>
       </>);

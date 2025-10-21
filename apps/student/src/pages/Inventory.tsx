@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loadItemDB, PlayerOps, loadPlayer, deriveBattleStats, type ItemDef } from '../core/player';
+import { addGold } from '../core/currency';
 
 type Slot = 'Weapon'|'Armor'|'Accessory';
 const SLOT_LABEL: Record<Slot,string> = { Weapon:'무기', Armor:'갑옷', Accessory:'악세' };
@@ -50,17 +51,29 @@ export default function Inventory(){
           const it = x.def!;
           const equippedId = player.equipment[slot];
           const selected = equippedId === it.id;
+          const price = fmtPriceByRarity(it.rarity);
           return (
-            <button key={it.id} onClick={()=> equip(selected ? undefined : it.id)}
-                    className={`group text-left border rounded-xl p-2 transition ${selected ? "border-emerald-500 bg-emerald-500/10" : "border-white/10 bg-white/5"}`}>
+            <div key={it.id} className={`group text-left border rounded-xl p-2 transition ${selected ? "border-emerald-500 bg-emerald-500/10" : "border-white/10 bg-white/5"}`}>
               <div className="text-sm font-medium">{it.name}</div>
               <div className="text-xs opacity-70">{SLOT_LABEL[it.slot as Slot]} · {it.rarity}</div>
-              <div className="mt-1 text-xs opacity-80">
-                {fmtStats(it)}
+              <div className="mt-1 text-xs opacity-80">{fmtStats(it)}</div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[10px] opacity-60">보유: {x.count}</span>
+                <div className="flex gap-2">
+                  <button className="px-2 py-1 text-xs rounded bg-slate-700" onClick={()=> equip(selected ? undefined : it.id)}>
+                    {selected ? '해제' : '장착'}
+                  </button>
+                  <button className="px-2 py-1 text-xs rounded bg-rose-700"
+                          onClick={()=>{
+                            if (selected) return; // 장착중 판매 방지
+                            PlayerOps.grantItem(it.id, -1); addGold(price);
+                            const p = loadPlayer(); setPlayer(p); setBag(p.bag);
+                          }}>
+                    판매(+{price})
+                  </button>
+                </div>
               </div>
-              <div className="mt-2 text-[10px] opacity-60">보유: {x.count}</div>
-              {selected && <div className="mt-2 text-[10px] inline-block px-1.5 py-0.5 rounded bg-emerald-600/80 text-white">장착중</div>}
-            </button>
+            </div>
           );
         })}
         {owned.length===0 && <div className="opacity-60 text-sm">해당 슬롯 장비 없음</div>}
@@ -78,3 +91,6 @@ function fmtStats(it: ItemDef){
   }
   return arr.join(' · ');
 }
+
+function fmtPriceByRarity(r: ItemDef['rarity']){ return r==='SSR'?300:r==='SR'?120:r==='R'?40:10 }
+

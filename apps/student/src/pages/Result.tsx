@@ -3,14 +3,52 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { newRunToken, resetLocalRunState, ensureRunToken, finishDungeon, type RunSummary } from '../api';
 import { initQueue, enqueue } from '../shared/lib/queue';
+import RewardModal from '../shared/assets/RewardModal';
+import { PlayerOps, loadItemDB, type ItemDef } from '../core/player';
 
 type Resp = { ok: true; idempotent: boolean } | null;
+
 
 export default function Result() {
   const nav = useNavigate();
 
+// 컴포넌트 내부 state
+  const [rewardOpen, setRewardOpen] = useState(false);
+  const [rewardBag, setRewardBag] = useState<Record<string, number>>({});
+  const [items, setItems] = useState<Record<string, ItemDef>>({});
+  
   // 오프라인 재시도 큐 가동
   useEffect(() => { initQueue(finishDungeon); }, []);
+
+  // 아이템 DB 1회 로드
+  useEffect(() => {
+    (async () => {
+      const db = await loadItemDB(import.meta.env.BASE_URL + 'items.v1.json');
+      setItems(db);
+    })();
+  }, []);
+
+// 결과 진입 시 보상 읽기
+  useEffect(() => {
+    const raw = localStorage.getItem('qd:lastRewards');
+    if (raw) {
+      try {
+        const bag = JSON.parse(raw) as Record<string, number>;
+        if (bag && Object.keys(bag).length) {
+          setRewardBag(bag);
+          setRewardOpen(true);
+        }
+      } catch {}
+    }
+  }, []);
+
+  function handleEquip(id: string) {
+    const it = items[id];
+    if (!it || !it.slot) return;
+    PlayerOps.equip(it.slot as any, id);
+    setRewardOpen(false);
+  }
+
 
   async function restart() {
     await newRunToken();
@@ -140,7 +178,12 @@ export default function Result() {
           </div>
         )}
       </div>
-
+      <RewardModal
+        open={rewardOpen}
+        rewards={rewardBag}
+        onClose={() => setRewardOpen(false)}
+        onEquip={handleEquip}
+      />
       <div className="mt-6 flex gap-3">
         <button className="px-4 py-2 bg-emerald-600 rounded" onClick={restart}>다시하기</button>
         <button className="px-4 py-2 bg-slate-700 rounded" onClick={goHome}>메인</button>

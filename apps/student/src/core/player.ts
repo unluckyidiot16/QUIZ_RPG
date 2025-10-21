@@ -139,3 +139,12 @@ export function rollSubjectAffixes(seed: number, amountMin=1, amountMax=3){
 }
 function mulberry32(a:number){ return function(){ let t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296 } }
 
+const LVQ = 'qrpg_level_queue_v1';
+function pushLevelUp(lv:number){ const arr = JSON.parse(localStorage.getItem(LVQ) ?? '[]'); arr.push(lv); localStorage.setItem(LVQ, JSON.stringify(arr)) }
+export function popLevelUps(): number[]{ const arr = JSON.parse(localStorage.getItem(LVQ) ?? '[]'); localStorage.setItem(LVQ, '[]'); return arr }
+export function grantXpAndCheckLevel(delta:number){
+  const s = loadPlayer(); const before = levelFromXp(s.totalXp).level;
+  s.totalXp = Math.max(0, s.totalXp + Math.round(delta)); savePlayer(s);
+  const after = levelFromXp(s.totalXp).level; for (let lv=before+1; lv<=after; lv++) pushLevelUp(lv);
+  return { before, after };
+}

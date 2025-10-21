@@ -6,6 +6,8 @@ import { loadGachaPool } from '../core/packs';
 import { loadWearablesCatalog } from '../core/wearable.catalog';
 import type { GachaPoolDef } from '../core/items';
 import { newIdempotencyKey } from '../shared/lib/idempotency';
+import { grantAvatarOrAutoSell } from '../core/wardrobe';
+import { addGold, loadWallet } from '../core/currency';
 
 // BASE_URL-safe 이미지 경로 정규화
 const __prefix = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
@@ -83,6 +85,15 @@ export default function Gacha(){
     }
   }
 
+  function onGachaResult(avatarId: string){
+    const res = grantAvatarOrAutoSell(avatarId);
+    if (res.autoSold) {
+      // 토스트: `[중복] OOO → 자동 판매 +${res.gold}골드`, 잔액: loadWallet().gold
+    } else {
+      // 토스트: `신규 획득: OOO`
+    }
+  }
+  
   return (
     <div className="p-6 max-w-xl mx-auto">
       {/* 상단 네비 */}

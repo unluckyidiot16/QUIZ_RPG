@@ -24,6 +24,30 @@ export const STAGES: Record<string, StageDef> = {
       ]
     }
   },
+  ST02: {
+       id:'ST02', name:'숲 2', packId:'sample', enemyId:'E02',
+     subjectPool:['ENG','MATH','SCI'],
+     drops:{
+       seedBase:'ST02', pulls:1, 
+       entries:[
+        {kind:'item', id:'w_iron_sword', weight:3},
+        {kind:'item', id:'a_chain_mail', weight:4},
+        {kind:'item', id:'acc_lucky_charm', weight:3},
+       ]
+     }
+  },
+  ST03: {
+     id:'ST03', name:'동굴 3', packId:'sample', enemyId:'E03',
+       subjectPool:['SOC','HIST','KOR'],
+       drops:{ 
+        seedBase:'ST03', pulls:1,
+        entries:[
+         {kind:'item', id:'w_knight_blade', weight:2}, 
+         {kind:'item', id:'a_chain_mail', weight:5},
+         {kind:'item', id:'acc_lucky_charm', weight:3},
+       ]
+     }
+  },
 };
 
 export function getStageFromQuery(qs: URLSearchParams): StageDef {
