@@ -26,7 +26,7 @@ export const STAGES: Record<string, StageDef> = {
   },
   ST02: {
        id:'ST02', name:'숲 2', packId:'sample', enemyId:'E02',
-     subjectPool:['ENG','MATH','SCI'],
+     subjectPool:['KOR','ENG','MATH','SCI','SOC','HIST'],
      drops:{
        seedBase:'ST02', pulls:1, 
        entries:[
@@ -38,7 +38,7 @@ export const STAGES: Record<string, StageDef> = {
   },
   ST03: {
      id:'ST03', name:'동굴 3', packId:'sample', enemyId:'E03',
-       subjectPool:['SOC','HIST','KOR'],
+       subjectPool:['KOR','ENG','MATH','SCI','SOC','HIST'],
        drops:{ 
         seedBase:'ST03', pulls:1,
         entries:[

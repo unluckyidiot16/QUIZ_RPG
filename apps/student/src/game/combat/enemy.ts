@@ -31,7 +31,7 @@ export interface EnemyDef {
 
 export const ENEMIES: EnemyDef[] = [
   {
-    id: 'E01', name: 'Blue Slime', subject: 'ENG', pattern: 'Shield', hpMul: 1.0,
+    id: 'E01', name: 'Blue Slime', subject: 'ENG', pattern: 'Shield', hpMul: 0.005,
     sprite: { type: 'Slime', variant: 'Blue', frames: { Move: 6, Attack: 8, Die: 8, Hit: 2 } }
   },
   {
