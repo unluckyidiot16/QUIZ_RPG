@@ -7,6 +7,7 @@ export default function Main(){
       <p className="opacity-80 mt-2">퀴즈를 풀고 던전을 클리어하세요.</p>
       <div className="mt-6 grid gap-3 grid-cols-2">
         <Link className="text-center px-4 py-3 bg-emerald-600 rounded" to="/lobby">로비</Link>
+        <Link className="text-center px-4 py-3 bg-slate-700 rounded" to="/status">상태</Link>
         <Link className="text-center px-4 py-3 bg-indigo-600 rounded" to="/play">전투(퀴즈)</Link>
         <Link className="text-center px-4 py-3 bg-slate-700 rounded" to="/gacha">가챠</Link>
         <Link className="text-center px-4 py-3 bg-slate-700 rounded" to="/inventory">인벤토리</Link>
