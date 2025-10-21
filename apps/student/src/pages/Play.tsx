@@ -5,7 +5,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 // ⚠️ Result.tsx가 '../api'를 쓰고 있으니 여기도 동일 경로로 맞춰 드롭 인
 import * as api from '../api';
 import { makeRng } from '../shared/lib/rng';
-import { resolveElemsFromQuery, mult } from '../game/combat/affinity';
 import { actByPattern, PatternKey, applyShieldToDamage } from '../game/combat/patterns';
 import { MAX_HP, PLAYER_BASE_DMG, PLAYER_CRIT_CHANCE } from '../game/combat/constants';
 import { pickEnemyByQuery } from '../game/combat/enemy';
@@ -13,7 +12,6 @@ import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../game/combat/sp
 import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
 import type { EnemyState } from '../game/combat/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
-import type { Elem } from '../game/combat/affinity';
 
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
