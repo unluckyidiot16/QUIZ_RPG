@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { loadPlayer, levelFromXp, loadItemDB, deriveBattleStats, PlayerOps, type PlayerState, type ItemDef, SUBJECTS, SUBJECT_LABEL } from '../core/player'
+import { SUBJECT_TO_COLOR, SKILL_HEX, COLOR_CLS } from '../game/combat/affinity'
 
 export default function Status(){
   const [player, setPlayer] = useState<PlayerState|null>(null)
@@ -45,14 +46,25 @@ export default function Status(){
       <div className="mt-4 p-3 rounded bg-slate-800/60">
         <div className="font-semibold mb-2">과목별 공격력</div>
         <div className="grid grid-cols-2 gap-4 items-center">
-          <Radar6 values={SUBJECTS.map(s=> stat.subAtk[s])} labels={SUBJECTS.map(s=> SUBJECT_LABEL[s])} />
+          <Radar6
+            values={SUBJECTS.map(s=> stat.subAtk[s])}
+            labels={SUBJECTS.map(s=> SUBJECT_LABEL[s])}
+            colors={SUBJECTS.map(s=> SKILL_HEX[SUBJECT_TO_COLOR[s]])}
+          />
           <ul className="text-sm grid grid-cols-2 gap-2">
-            {SUBJECTS.map(s=> (
-              <li key={s} className="p-2 rounded bg-slate-900 flex items-center justify-between">
-                <span>{SUBJECT_LABEL[s]}</span>
-                <b>{stat.subAtk[s]}</b>
-              </li>
-            ))}
+            {SUBJECTS.map(s => {
+              const c = SUBJECT_TO_COLOR[s];
+              const cls = COLOR_CLS[c];
+              return (
+                <li key={s} className={`p-2 rounded ring-1 ${cls.bg} ${cls.text} ${cls.ring} flex items-center justify-between`}>
+                  <span className="flex items-center gap-2">
++               <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: SKILL_HEX[c] }} />
++               {SUBJECT_LABEL[s]}
+                  </span>
+                  <b>{stat.subAtk[s]}</b>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>
@@ -111,13 +123,14 @@ function fmtStats(it: ItemDef){
   if (s.subAtk){
     const entries = Object.entries(s.subAtk)
     if (entries.length){
-      arr.push(entries.map(([k,v])=> `${SUBJECT_LABEL[k as any] ?? k} +${v}`).join(' · '))
+      const LABEL: Record<string, string> = SUBJECT_LABEL as any; // TS index guard
+      arr.push(entries.map(([k,v])=> `${LABEL[k] ?? k} +${v}`).join(' · '))
     }
   }
   return arr.join(' · ')
 }
 // ── 6각형 레이더 차트 (SVG, 라이브러리 불필요) ──
-function Radar6({ values, labels }:{ values:number[]; labels:string[] }){
+function Radar6({ values, labels, colors }:{ values:number[]; labels:string[]; colors?: string[] }){
   const max = Math.max(1, ...values)
   const norm = values.map(v=> v/max)
   const angles = [...Array(6)].map((_,i)=> (-90 + i*60) * Math.PI/180) // 위쪽부터 시계방향
@@ -143,14 +156,17 @@ function Radar6({ values, labels }:{ values:number[]; labels:string[] }){
         <polygon key={idx} points={ring(p)} fill="none" stroke="currentColor" opacity="0.2" />
       ))}
       {/* 축 */}
-      {angles.map((a,i)=> (
-        <line key={i} x1={center} y1={center} x2={center+R*Math.cos(a)} y2={center+R*Math.sin(a)} stroke="currentColor" opacity="0.2" />
-      ))}
+      {angles.map((a,i)=> {
+        const stroke = colors?.[i] ?? 'currentColor';
+        return <line key={i} x1={center} y1={center} x2={center+R*Math.cos(a)} y2={center+R*Math.sin(a)} stroke={stroke} opacity="0.6" />
+      })}
       {/* 값 폴리곤 */}
       <polygon points={pts} fill="currentColor" opacity="0.3" />
       {/* 라벨 */}
       {angles.map((a,i)=> (
-        <text key={i} x={center+(R+8)*Math.cos(a)} y={center+(R+8)*Math.sin(a)} textAnchor="middle" dominantBaseline="middle" fontSize="8">{labels[i]}</text>
+        <text key={i} x={center+(R+8)*Math.cos(a)} y={center+(R+8)*Math.sin(a)}
+              textAnchor="middle" dominantBaseline="middle" fontSize="8"
+              fill={colors?.[i] ?? 'currentColor'}>{labels[i]}</text>
       ))}
     </svg>
   )
