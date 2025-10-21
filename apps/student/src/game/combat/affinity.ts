@@ -1,7 +1,7 @@
-export type Elem = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'GEN';
+export type Elem = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'HIST';
 
 // 6개 과목을 원형으로 두고 "한 칸 뒤에 강함, 한 칸 앞에 약함" 규칙(간단/직관)
-export const ELEMS: Elem[] = ['KOR','ENG','MATH','SCI','SOC','GEN'];
+export const ELEMS: Elem[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
 
 // 강/약 배수
 const STRONG = 1.5;
@@ -31,7 +31,7 @@ export const mult = (att: Elem, def: Elem) => MATRIX[att]?.[def] ?? 1.0;
 
 /** 쿼리 파라미터 또는 기본값으로 플레이어/적 속성 결정 */
 export function resolveElemsFromQuery(qs: URLSearchParams): { player: Elem; enemy: Elem } {
-  const asElem = (v?: string): Elem => (ELEMS as string[]).includes(v ?? '') ? (v as Elem) : 'GEN';
+  const asElem = (v?: string): Elem => (ELEMS as string[]).includes(v ?? '') ? (v as Elem) : 'HIST';
   return {
     player: asElem(qs.get('p')),
     enemy : asElem(qs.get('e')),

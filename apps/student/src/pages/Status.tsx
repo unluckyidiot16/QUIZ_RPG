@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { loadPlayer, levelFromXp, loadItemDB, deriveBattleStats, PlayerOps, type PlayerState, type ItemDef } from '../core/player'
+import { loadPlayer, levelFromXp, loadItemDB, deriveBattleStats, PlayerOps, type PlayerState, type ItemDef, SUBJECTS, SUBJECT_LABEL } from '../core/player'
 
 export default function Status(){
   const [player, setPlayer] = useState<PlayerState|null>(null)
   const [items, setItems] = useState<Record<string, ItemDef>>({})
   const [busy, setBusy] = useState(false)
 
-  useEffect(()=>{ setPlayer(loadPlayer()); loadItemDB().then(setItems) }, [])
+  useEffect(()=>{ setPlayer(loadPlayer()); loadItemDB(import.meta.env.BASE_URL + 'items.v1.json').then(setItems) }, [])
   if (!player) return <div className="p-6">로딩…</div>
 
   const lv = levelFromXp(player.totalXp)
@@ -32,14 +32,29 @@ export default function Status(){
         </div>
       </div>
 
-      {/* 전투 스탯 */}
+      {/* 전투 스탯 요약 */}
       <div className="mt-4 p-3 rounded bg-slate-800/60">
         <div className="font-semibold mb-2">전투 스탯 (기본 + 장비)</div>
-        <ul className="grid grid-cols-3 gap-2 text-center">
+        <ul className="grid grid-cols-2 gap-2 text-center">
           <li className="p-2 rounded bg-slate-900">HP<br/><b>{stat.hp}</b></li>
-          <li className="p-2 rounded bg-slate-900">ATK<br/><b>{stat.atk}</b></li>
           <li className="p-2 rounded bg-slate-900">DEF<br/><b>{stat.def}</b></li>
         </ul>
+      </div>
+
+      {/* 과목별 공격력 + 레이더 */}
+      <div className="mt-4 p-3 rounded bg-slate-800/60">
+        <div className="font-semibold mb-2">과목별 공격력</div>
+        <div className="grid grid-cols-2 gap-4 items-center">
+          <Radar6 values={SUBJECTS.map(s=> stat.subAtk[s])} labels={SUBJECTS.map(s=> SUBJECT_LABEL[s])} />
+          <ul className="text-sm grid grid-cols-2 gap-2">
+            {SUBJECTS.map(s=> (
+              <li key={s} className="p-2 rounded bg-slate-900 flex items-center justify-between">
+                <span>{SUBJECT_LABEL[s]}</span>
+                <b>{stat.subAtk[s]}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       {/* 장비 */}
@@ -48,6 +63,7 @@ export default function Status(){
         <EquipRow slot="Weapon" items={items} player={player} onChange={()=>setPlayer(loadPlayer())} />
         <EquipRow slot="Armor" items={items} player={player} onChange={()=>setPlayer(loadPlayer())} />
         <EquipRow slot="Accessory" items={items} player={player} onChange={()=>setPlayer(loadPlayer())} />
+        <p className="text-xs opacity-70 mt-2">※ 가챠 코스튬은 외형 전용이며 스탯이 없습니다. 장비는 던전 보상으로만 획득합니다.</p>
       </div>
 
       <div className="mt-6 flex gap-2">
@@ -57,7 +73,6 @@ export default function Status(){
     </div>
   )
 }
-
 
 function EquipRow({ slot, items, player, onChange }:{ slot:'Weapon'|'Armor'|'Accessory', items:Record<string,ItemDef>, player:PlayerState, onChange:()=>void }){
   const equippedId = player.equipment[slot]
@@ -91,9 +106,53 @@ function EquipRow({ slot, items, player, onChange }:{ slot:'Weapon'|'Armor'|'Acc
 function fmtStats(it: ItemDef){
   const s = it.stats ?? {}
   const arr: string[] = []
-  if (s.atk) arr.push(`ATK +${s.atk}`)
   if (s.def) arr.push(`DEF +${s.def}`)
   if (s.hp) arr.push(`HP +${s.hp}`)
+  if (s.subAtk){
+    const entries = Object.entries(s.subAtk)
+    if (entries.length){
+      arr.push(entries.map(([k,v])=> `${SUBJECT_LABEL[k as any] ?? k} +${v}`).join(' · '))
+    }
+  }
   return arr.join(' · ')
+}
+// ── 6각형 레이더 차트 (SVG, 라이브러리 불필요) ──
+function Radar6({ values, labels }:{ values:number[]; labels:string[] }){
+  const max = Math.max(1, ...values)
+  const norm = values.map(v=> v/max)
+  const angles = [...Array(6)].map((_,i)=> (-90 + i*60) * Math.PI/180) // 위쪽부터 시계방향
+  const center = 60, R = 50
+  const pts = norm.map((t,i)=> {
+    const r = R * t
+    const x = center + r * Math.cos(angles[i])
+    const y = center + r * Math.sin(angles[i])
+    return `${x},${y}`
+  }).join(' ')
+
+  const ring = (p:number)=> [...Array(6)].map((_,i)=>{
+    const r = R * p
+    const x = center + r * Math.cos(angles[i])
+    const y = center + r * Math.sin(angles[i])
+    return `${x},${y}`
+  }).join(' ')
+
+  return (
+    <svg width={140} height={140} viewBox="0 0 120 120" className="mx-auto">
+      {/* 그리드 링 */}
+      {[0.33,0.66,1].map((p,idx)=> (
+        <polygon key={idx} points={ring(p)} fill="none" stroke="currentColor" opacity="0.2" />
+      ))}
+      {/* 축 */}
+      {angles.map((a,i)=> (
+        <line key={i} x1={center} y1={center} x2={center+R*Math.cos(a)} y2={center+R*Math.sin(a)} stroke="currentColor" opacity="0.2" />
+      ))}
+      {/* 값 폴리곤 */}
+      <polygon points={pts} fill="currentColor" opacity="0.3" />
+      {/* 라벨 */}
+      {angles.map((a,i)=> (
+        <text key={i} x={center+(R+8)*Math.cos(a)} y={center+(R+8)*Math.sin(a)} textAnchor="middle" dominantBaseline="middle" fontSize="8">{labels[i]}</text>
+      ))}
+    </svg>
+  )
 }
 

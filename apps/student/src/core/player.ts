@@ -1,9 +1,19 @@
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
-export interface Stats { hp:number; atk:number; def:number }
+// ── 과목(6) 정의 ──
+export type Subject = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'HIST';
+export const SUBJECTS: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
+export const SUBJECT_LABEL: Record<Subject,string> = {
+  KOR:'국어', ENG:'영어', MATH:'수학', SCI:'과학', SOC:'사회', HIST:'역사'
+};
+
+export interface SubjectPower { [k: string]: number } // key: Subject
+
+export interface StatsBase { hp:number; def:number }
 export interface PlayerState {
   totalXp: number; // 누적 XP
-  base: Stats; // 캐릭터 기본 스탯 (레벨에 따른 증가분 포함 전)
+  base: StatsBase; // 캐릭터 기본 스탯(레벨 보정 전)
+  subAtk: SubjectPower; // 과목별 기본 공격력(캐릭터 고유치/레벨 보정치)
   equipment: Partial<Record<EquipmentSlot, string>>; // 아이템 ID 참조
   bag: Record<string, number>; // 장비/소모품 보유 수량
   version: number;
@@ -12,10 +22,11 @@ export interface PlayerState {
 const K = 'qrpg_player_v1';
 const DEF: PlayerState = {
   totalXp: 0,
-  base: { hp: 100, atk: 10, def: 0 },
+  base: { hp: 100, def: 0 },
+  subAtk: { KOR:1, ENG:1, MATH:1, SCI:1, SOC:1, HIST:1 },
   equipment: {},
   bag: {},
-  version: 1,
+  version: 2,
 };
 
 export function loadPlayer(): PlayerState {
@@ -45,10 +56,11 @@ export interface ItemDef {
   name: string
   slot: ItemSlot
   rarity: 'N'|'R'|'SR'|'SSR'
-  stats?: Partial<Stats> // 장비가 제공하는 스탯
+  stats?: Partial<StatsBase> & { subAtk?: Partial<Record<Subject, number>> } // 장비 스탯
 }
 
-export async function loadItemDB(url = '/items.v1.json'): Promise<Record<string, ItemDef>>{
+/** 아이템 DB 로더 (public/items.v1.json) */
+export async function loadItemDB(url = 'items.v1.json'): Promise<Record<string, ItemDef>>{
   const res = await fetch(url)
   const list = await res.json() as ItemDef[]
   const map: Record<string, ItemDef> = {}
@@ -56,7 +68,7 @@ export async function loadItemDB(url = '/items.v1.json'): Promise<Record<string,
   return map
 }
 
-/** 장비 착용/해제/지급 도우미 */
+/** 장비/지급 도우미 */
 export const PlayerOps = {
   grantXp(delta: number){
     const s = loadPlayer(); s.totalXp = Math.max(0, s.totalXp + Math.round(delta)); savePlayer(s); return s
@@ -69,29 +81,45 @@ export const PlayerOps = {
   }
 }
 
-/** 최종 전투 스탯 계산: base + 장비 합산 */
-export function deriveBattleStats(items: Record<string, ItemDef>, s: PlayerState){
-  const { hp, atk, def } = Object.values(s.equipment).reduce((acc, id) => {
+/** 최종 전투 스탯 계산: (기본 + 장비합산) */
+export interface CombatStats { hp:number; def:number; subAtk: Record<Subject, number> }
+export function deriveBattleStats(items: Record<string, ItemDef>, s: PlayerState): CombatStats{
+  const agg = { hp:0, def:0, subAtk: { KOR:0, ENG:0, MATH:0, SCI:0, SOC:0, HIST:0 } as Record<Subject,number> }
+  for (const id of Object.values(s.equipment)){
     const it = id ? items[id] : undefined
-    if (!it?.stats) return acc
-    return {
-      hp: acc.hp + (it.stats.hp ?? 0),
-      atk: acc.atk + (it.stats.atk ?? 0),
-      def: acc.def + (it.stats.def ?? 0),
-    }
-  }, { hp:0, atk:0, def:0 })
-  return {
-    hp: s.base.hp + hp,
-    atk: s.base.atk + atk,
-    def: s.base.def + def,
-  } as Stats
+    if (!it?.stats) continue
+    agg.hp += it.stats.hp ?? 0
+    agg.def += it.stats.def ?? 0
+    const sub = it.stats.subAtk ?? {}
+    for (const k of SUBJECTS){ agg.subAtk[k] += (sub[k] ?? 0) }
+  }
+  const out: CombatStats = {
+    hp: s.base.hp + agg.hp,
+    def: s.base.def + agg.def,
+    subAtk: { ...s.subAtk }
+  }
+  for (const k of SUBJECTS){ out.subAtk[k] += agg.subAtk[k] }
+  return out
 }
 
-// ── 멱등 지급 영수증 키(클라) 생성 도우미 ──
+// ── 멱등 지급 영수증 키(클라) ──
 export function makeReceiptKey(kind: 'xp'|'item'|'equip', payload: unknown){
-// 간단 해시(충분): JSON 문자열 길이+CRC32 대체로 djb2
   const str = kind + ':' + JSON.stringify(payload)
   let h = 5381; for (let i=0;i<str.length;i++) h = ((h<<5)+h) + str.charCodeAt(i)
   return 'rcp_' + (h>>>0).toString(16)
 }
+
+// ── 결정론 랜덤 부속성(과목 2종) 롤러 ──
+export function rollSubjectAffixes(seed: number, amountMin=1, amountMax=3){
+  const rng = mulberry32(seed)
+  const picks = new Set<Subject>()
+  while (picks.size < 2){
+    const k = SUBJECTS[Math.floor(rng()*SUBJECTS.length)]
+    picks.add(k)
+  }
+  const out: Partial<Record<Subject,number>> = {}
+  for (const k of picks){ out[k] = amountMin + Math.floor(rng()*(amountMax-amountMin+1)) }
+  return out
+}
+function mulberry32(a:number){ return function(){ let t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15,t|1); t^=t+Math.imul(t^t>>>7,t|61); return ((t^t>>>14)>>>0)/4294967296 } }
 
