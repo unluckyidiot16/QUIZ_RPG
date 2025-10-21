@@ -8,6 +8,7 @@ import AppShell from './app/AppShell';
 
 import Main from './pages/Main';
 import Lobby from './pages/Lobby';
+import Status from './pages/Status';
 import Play from './pages/Play';
 import Result from './pages/Result';
 import Gacha from './pages/Gacha';
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
     element: <AppShell />,                 // ✅ 헤더는 여기서만
     children: [
       { index: true, element: <Main/> },
+      { path: '/status', element: <Status/> },
       { path: '/lobby', element: <Lobby/> },
       { path: '/play', element: <Play/> },
       { path: '/result', element: <Result/> },
