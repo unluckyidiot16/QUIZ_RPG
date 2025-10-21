@@ -11,10 +11,11 @@ import { pickEnemyByQuery } from '../game/combat/enemy';
 import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../game/combat/sprites';
 import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
 import type { EnemyState } from '../game/combat/sprites';
-import type { EnemyAction } from '../game/combat/patterns'; 
-import { subjectMultiplier, SUBJECT_TO_COLOR } from '../game/combat/affinity';
-import type { Subject } from '../game/combat/affinity';
-import { loadPlayer, loadItemDB, deriveBattleStats } from '../core/player';
+import type { EnemyAction } from '../game/combat/patterns';
+import { subjectMultiplier, SUBJECT_TO_COLOR, SKILL_HEX } from '../game/combat/affinity';
+import { loadPlayer, loadItemDB, deriveBattleStats, SUBJECTS, type Subject } from '../core/player';
+import { applyDrops } from '../game/loot';
+import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
 
 
 
@@ -104,6 +105,7 @@ export default function Play() {
 
   const location = useLocation();
   const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const stage = useMemo(() => getStageFromQuery(search), [search]);
   const [enemyState, setEnemyState] = useState<EnemyState>('Move');
   const attackTimerRef = useRef<number | null>(null);
   const hitTimerRef = useRef<number | null>(null);
@@ -140,6 +142,10 @@ export default function Play() {
   const [playerHP, setPlayerHP] = useState(MAX_HP);
   const [enemyHP, setEnemyHP] = useState(MAX_HP);
   const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
+
+  const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
+  const [options, setOptions] = useState<Subject[]>([]);
+  const [subject, setSubject] = useState<Subject>('KOR');
 
   const FPS_BY_STATE: Record<EnemyState, number> = {
     Move: 8,
@@ -188,9 +194,12 @@ export default function Play() {
     FPS_BY_STATE[enemyState],
     looping
   );
-  
-  const patParam = search.get('pat') as PatternKey | null;
-  const pattern: PatternKey = patParam ?? enemyDef.pattern ?? 'Aggressive';
+
+  const patParam = search.get('pat') as string | null;
+  const asPat = (p: any): p is PatternKey => (p === 'Aggressive' || p === 'Shield' || p === 'Spiky');
+  const pattern: PatternKey = asPat(patParam) ? patParam
+    : asPat((enemyDef as any).pattern) ? (enemyDef as any).pattern
+      : 'Aggressive';
 
 // 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
   const runToken = useMemo(() => /* 기존 런 식별자 사용 */ (localStorage.getItem('runToken') ?? 'dev'), []);
@@ -325,6 +334,19 @@ export default function Play() {
     })();
     return () => { alive = false };
   }, []);
+
+  useEffect(()=> {
+    const seed = localStorage.getItem('runToken') ?? 'dev';
+    const opts = selectSubjectsForTurn(stage, turnRef.current, seed);
+    setOptions(opts);
+    setPhase('pick');
+  }, [stage, idx]); // 매 문제(or 라운드) 시작마다 갱신
+
+  function chooseSubject(s: Subject){
+    setSubject(s);
+    // TODO: pickQuestionForSubject(s)로 과목별 문제를 골라 세팅(팩에 과목 태그가 들어가면 적용)
+    setPhase('quiz');
+  }
   
   // 5) 답안 처리
   async function onPick(pick: Choice['key']) {
@@ -456,6 +478,11 @@ export default function Play() {
     localStorage.setItem('qd:lastPack', pack);
     localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
 
+    const { clearCount } = getStageRuntime(stage.id);
+    const rewards = await applyDrops(stageDropTable(stage), `${stage.id}:${clearCount}`);
+    if (cleared) recordStageClear(stage.id);
+
+
     try {
       await proofRef.current?.summary?.({cleared, score, total} as any);
     } catch {
@@ -466,17 +493,13 @@ export default function Play() {
 
   // ───────────── 임시 상성 ─────────────
   
-  const SUBJECTS: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
-
   function isSubject(x?: string | null): x is Subject {
     return !!x && SUBJECTS.includes(x.toUpperCase() as Subject);
   }
 
   function resolveSubject(): Subject {
-    // TODO: 팩/문항 메타에 과목 태그 있으면 그걸 우선 사용
-    const s = (search.get('subj') || '').toUpperCase();
-    return isSubject(s) ? (s as Subject) : 'KOR';
-  }
+    return subject; // 현재 선택된 과목
+    }
 
   function resolveEnemySubject(): Subject {
     const s = (search.get('esubj') || '').toUpperCase();
@@ -590,23 +613,38 @@ export default function Play() {
             <HPBar value={enemyHP} label="Enemy"/>
           </div>
 
-          <div className="p-4 rounded bg-slate-800">
-            <div className="font-medium whitespace-pre-wrap">{q.stem}</div>
-            <div className="grid gap-2 mt-3">
-              {(q?.choices ?? []).map((c) => (
-                <button
-                  key={c.key}
-                  className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
-                  onClick={() => onPick(c.key)}
-                >
-                  <span className="font-bold mr-2">{c.key}.</span>{c.text}
-                </button>
-              ))}
-              {(!q?.choices || q.choices.length === 0) && (
-                <div className="text-sm text-rose-300">이 문항의 선택지 형식이 올바르지 않습니다.</div>
-              )}
+          {phase === 'pick' ? (
+            // 과목 선택 화면
+            <div className="p-4 rounded bg-slate-800">
+              <div className="font-medium mb-3">과목을 선택하세요</div>
+              <div className="grid grid-cols-2 gap-3">
+                {options.map(s => (
+                  <button key={s} onClick={() => chooseSubject(s)}
+                          className="p-4 rounded-xl border border-white/10 bg-slate-900/60 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-3 h-3 rounded-full" style={{ background: SKILL_HEX[SUBJECT_TO_COLOR[s]] }} />
+                            {s}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            // 문제 풀이 화면
+            <div className="p-4 rounded bg-slate-800">
+              <div className="font-medium whitespace-pre-wrap">{q?.stem}</div>
+              <div className="grid gap-2 mt-3">
+                {(q?.choices ?? []).map((c) => (
+                  <button key={c.key} className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition" onClick={() => onPick(c.key)}>
+                    <span className="font-bold mr-2">{c.key}.</span>{c.text}
+                  </button>
+                ))}
+                {(!q?.choices || q.choices.length === 0) && (
+                  <div className="text-sm text-rose-300">이 문항의 선택지 형식이 올바르지 않습니다.</div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="text-emerald-400">{msg}</div>
         </div>
