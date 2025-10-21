@@ -6,8 +6,7 @@ export const SUBJECTS: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
 export const SUBJECT_LABEL: Record<Subject,string> = {
   KOR:'국어', ENG:'영어', MATH:'수학', SCI:'과학', SOC:'사회', HIST:'역사'
 };
-
-export interface SubjectPower { [k: string]: number } // key: Subject
+export type SubjectPower = Record<Subject, number>;
 
 export interface StatsBase { hp:number; def:number }
 export interface PlayerState {
@@ -29,9 +28,24 @@ const DEF: PlayerState = {
   version: 2,
 };
 
+export function normalizeSubAtk(x?: Partial<Record<Subject, number>> | Record<string, number> | null): SubjectPower {
+  const out = {} as SubjectPower;
+  for (const s of SUBJECTS) out[s] = (x && (x as any)[s]) ?? 0;
+  return out;
+}
+
 export function loadPlayer(): PlayerState {
-  try { return { ...DEF, ...JSON.parse(localStorage.getItem(K) ?? 'null') } }
-  catch { return { ...DEF } }
+  try {
+    const raw = JSON.parse(localStorage.getItem(K) ?? 'null') as Partial<PlayerState> | null;
+    return {
+      totalXp: raw?.totalXp ?? DEF.totalXp,
+      base: { hp: raw?.base?.hp ?? DEF.base.hp, def: raw?.base?.def ?? DEF.base.def },
+      subAtk: normalizeSubAtk((raw as any)?.subAtk),
+      equipment: (raw?.equipment ?? {}) as PlayerState['equipment'],
+      bag: raw?.bag ?? {},
+      version: DEF.version,
+    };
+  } catch { return { ...DEF } }
 }
 export function savePlayer(s: PlayerState){ localStorage.setItem(K, JSON.stringify(s)) }
 
@@ -82,24 +96,26 @@ export const PlayerOps = {
 }
 
 /** 최종 전투 스탯 계산: (기본 + 장비합산) */
-export interface CombatStats { hp:number; def:number; subAtk: Record<Subject, number> }
-export function deriveBattleStats(items: Record<string, ItemDef>, s: PlayerState): CombatStats{
-  const agg = { hp:0, def:0, subAtk: { KOR:0, ENG:0, MATH:0, SCI:0, SOC:0, HIST:0 } as Record<Subject,number> }
-  for (const id of Object.values(s.equipment)){
-    const it = id ? items[id] : undefined
-    if (!it?.stats) continue
-    agg.hp += it.stats.hp ?? 0
-    agg.def += it.stats.def ?? 0
-    const sub = it.stats.subAtk ?? {}
-    for (const k of SUBJECTS){ agg.subAtk[k] += (sub[k] ?? 0) }
+export interface CombatStats { hp:number; def:number; subAtk: SubjectPower }
+
+export function deriveBattleStats(items: Record<string, ItemDef>, s: PlayerState): CombatStats {
+  let addHp = 0, addDef = 0;
+  const addSub: SubjectPower = SUBJECTS.reduce((acc, k) => (acc[k]=0, acc), {} as SubjectPower);
+
+  for (const id of Object.values(s.equipment)) {
+    const it = id ? items[id] : undefined;
+    if (!it?.stats) continue;
+    addHp  += it.stats.hp  ?? 0;
+    addDef += it.stats.def ?? 0;
+    const sub = it.stats.subAtk ?? {};
+    for (const k of SUBJECTS) addSub[k] += (sub as any)[k] ?? 0;
   }
-  const out: CombatStats = {
-    hp: s.base.hp + agg.hp,
-    def: s.base.def + agg.def,
-    subAtk: { ...s.subAtk }
-  }
-  for (const k of SUBJECTS){ out.subAtk[k] += agg.subAtk[k] }
-  return out
+
+  // ← 여기서 6키를 보장해 반환
+  const baseSub = normalizeSubAtk(s.subAtk);
+  const outSub: SubjectPower = SUBJECTS.reduce((acc,k)=> (acc[k]= baseSub[k] + addSub[k], acc), {} as SubjectPower);
+
+  return { hp: s.base.hp + addHp, def: s.base.def + addDef, subAtk: outSub };
 }
 
 // ── 멱등 지급 영수증 키(클라) ──

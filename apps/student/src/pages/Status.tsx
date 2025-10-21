@@ -58,8 +58,8 @@ export default function Status(){
               return (
                 <li key={s} className={`p-2 rounded ring-1 ${cls.bg} ${cls.text} ${cls.ring} flex items-center justify-between`}>
                   <span className="flex items-center gap-2">
-+               <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: SKILL_HEX[c] }} />
-+               {SUBJECT_LABEL[s]}
+               <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: SKILL_HEX[c] }} />
+               {SUBJECT_LABEL[s]}
                   </span>
                   <b>{stat.subAtk[s]}</b>
                 </li>

@@ -11,7 +11,11 @@ import { pickEnemyByQuery } from '../game/combat/enemy';
 import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../game/combat/sprites';
 import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
 import type { EnemyState } from '../game/combat/sprites';
-import type { EnemyAction } from '../game/combat/patterns';
+import type { EnemyAction } from '../game/combat/patterns'; 
+import { subjectMultiplier, SUBJECT_TO_COLOR } from '../game/combat/affinity';
+import type { Subject } from '../game/combat/affinity';
+import { loadPlayer, loadItemDB, deriveBattleStats } from '../core/player';
+
 
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
@@ -23,13 +27,13 @@ type TurnLog = {
   pick: Choice['key'];
   correct: boolean;
   turn: number;
-  playerElem: Elem;
-  enemyElem: Elem;
   pattern: 'Aggressive' | 'Shield' | 'Spiky';
   enemyAct: EnemyAction;
   playerDmgToEnemy: number;
   spikeDmgToPlayer: number;
   hpAfter: { player: number; enemy: number };
+  subject?: Subject;
+  enemySubject?: Subject;
 };
 
 function usePackParam() {
@@ -109,6 +113,8 @@ export default function Play() {
   const popIdRef = useRef(0);
   const [hitBorder, setHitBorder] = useState<null | 'inner' | 'outer'>(null);
 
+  const [combatStats, setCombatStats] = useState<ReturnType<typeof deriveBattleStats> | null>(null);
+
   const triggerShake = (ms = 120) => {
     setShake(true);
     window.setTimeout(() => setShake(false), ms);
@@ -182,10 +188,7 @@ export default function Play() {
     FPS_BY_STATE[enemyState],
     looping
   );
-
-  const {player: playerElem, enemy: enemyElemQS} = resolveElemsFromQuery(search);
-  const enemyParam = search.get('e');                   // 'e'가 없으면 카탈로그 속성 사용
-  const resolvedEnemyElem = enemyParam ? enemyElemQS : enemyDef.elem;
+  
   const patParam = search.get('pat') as PatternKey | null;
   const pattern: PatternKey = patParam ?? enemyDef.pattern ?? 'Aggressive';
 
@@ -312,6 +315,16 @@ export default function Play() {
       if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const items = await loadItemDB(import.meta.env.BASE_URL + 'items.v1.json');
+      const ps = deriveBattleStats(items, loadPlayer());
+      if (alive) setCombatStats(ps);
+    })();
+    return () => { alive = false };
+  }, []);
   
   // 5) 답안 처리
   async function onPick(pick: Choice['key']) {
@@ -327,9 +340,20 @@ export default function Play() {
     let playerDmgToEnemy = 0;
     let spikeDmgToPlayer = 0;
     if (isCorrect) {
-      const playerCrit = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(PLAYER_BASE_DMG * 0.5) : 0;
-      const raw = PLAYER_BASE_DMG + playerCrit;
-      const withAff = Math.ceil(raw * mult(playerElem, resolvedEnemyElem));
+      // 1) 과목별 공격력 선택
+      const subj  = resolveSubject();
+      const esubj = resolveEnemySubject();
+      const atk   = combatStats?.subAtk?.[subj] ?? 1;
+      
+      // 2) 치명타(기존 로직 유지, 배수는 공격력 기준)
+      const crit  = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(atk * 0.5) : 0;
+      const base  = atk + crit;
+      
+      // 3) 6각 순환 상성 배수 (kor→eng→math→sci→soc→hist→kor)
+      const multS = subjectMultiplier(subj, esubj);
+      const withAff = Math.ceil(base * multS);
+      
+      // 4) 실드/가시 처리 유지
       playerDmgToEnemy = applyShieldToDamage(withAff, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
     }
@@ -380,8 +404,9 @@ export default function Play() {
 
     // 6) 전투 로그
     turnsRef.current.push({
-      id: q.id, pick, correct: isCorrect, turn,
-      playerElem, enemyElem: resolvedEnemyElem, pattern, enemyAct,
+      id: q.id, pick, correct: isCorrect, turn, 
+      subject: resolveSubject(), enemySubject: resolveEnemySubject(),
+      pattern, enemyAct,
       playerDmgToEnemy, spikeDmgToPlayer,
       hpAfter: {player: nextPlayer, enemy: nextEnemy},
     });
@@ -437,6 +462,27 @@ export default function Play() {
     }
 
     nav('/result', {replace: true}); // ← 이동
+  }
+
+  // ───────────── 임시 상성 ─────────────
+  
+  const SUBJECTS: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
+
+  function isSubject(x?: string | null): x is Subject {
+    return !!x && SUBJECTS.includes(x.toUpperCase() as Subject);
+  }
+
+  function resolveSubject(): Subject {
+    // TODO: 팩/문항 메타에 과목 태그 있으면 그걸 우선 사용
+    const s = (search.get('subj') || '').toUpperCase();
+    return isSubject(s) ? (s as Subject) : 'KOR';
+  }
+
+  function resolveEnemySubject(): Subject {
+    const s = (search.get('esubj') || '').toUpperCase();
+    // enemyDef.subject가 있으면 우선 사용
+    if (isSubject(s)) return s as Subject;
+    return (enemyDef as any).subject ?? 'ENG';
   }
   
 
@@ -536,8 +582,10 @@ export default function Play() {
               ))}
             </div>
             <div className="text-xs opacity-70">
-              적:{enemyDef.name} · P:{playerElem} vs E:{resolvedEnemyElem} / 패턴:{pattern} / 턴:{turnRef.current}
-            </div>
+              적:{enemyDef.name}
+              {' · '}S:{resolveSubject()}({SUBJECT_TO_COLOR[resolveSubject()]})
+              {' vs '}ES:{resolveEnemySubject()}({SUBJECT_TO_COLOR[resolveEnemySubject()]})
+              {' / '}패턴:{pattern} / 턴:{turnRef.current}            </div>
             <HPBar value={playerHP} label="Player"/>
             <HPBar value={enemyHP} label="Enemy"/>
           </div>
