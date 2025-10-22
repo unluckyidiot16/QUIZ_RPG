@@ -43,14 +43,22 @@ export default function Result() {
     }
   }, []);
 
-  function handleEquip(id: string) {
-    const it = items[id];
-    if (!it || !it.slot) return;
+  + async function handleEquip(id: string) {
+    // 1) items DB가 아직 로드 안된 상태(레이스) 대비
+    let it = items[id];
+    if (!it) {
+      const db = await loadItemDB(import.meta.env.BASE_URL + 'items.v1.json');
+      setItems(db);
+      it = db[id];
+    }
+    if (!it || !it.slot) { setRewardOpen(false); return; } // 안전 종료(원하면 토스트)
+
     const p = loadPlayer();
     if ((p.bag?.[id] ?? 0) <= 0) {
-      PlayerOps.grantItem(id, 1);
+      PlayerOps.grantItem(id, 1);       // 가방에 최소 1개 보장
     }
-    PlayerOps.equip(it.slot as any, id);    setRewardOpen(false);
+    PlayerOps.equip(it.slot as any, id); // 슬롯 기준 장착
+    setRewardOpen(false);                // ✅ 장착 후 모달 닫기
   }
 
 
