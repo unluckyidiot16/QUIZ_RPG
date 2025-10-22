@@ -5,24 +5,53 @@ export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 export type ItemDef = { id: string; name: string; slot?: 'Weapon'|'Armor'|'Accessory'; rarity?: 'N'|'R'|'SR'|'SSR'; stats?: any };
 
 let _itemDBCache: Record<string, ItemDef> | null = null;
+let _itemDBInflight: Promise<Record<string, ItemDef>> | null = null;
 
+function appBaseURL(): URL {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+  const base = (import.meta as any)?.env?.BASE_URL ?? (import.meta as any)?.env?.BASE ?? (import.meta.env?.BASE_URL ?? '/');
+  return new URL(base, origin); // ex) https://site.com/app/
+}
+function abs(urlLike: string): string {
+  if (/^https?:\/\//i.test(urlLike)) return urlLike;
+  const path = urlLike.replace(/^\//, '');
+  return new URL(path, appBaseURL()).toString();
+}
+async function fetchJsonSmart(primary: string, fallback?: string) {
+  try {
+    const r = await fetch(abs(primary), { cache: 'no-store' });
+    if (r.ok) return await r.json();
+  } catch {}
+  if (fallback) {
+    try {
+      const r2 = await fetch(abs(fallback), { cache: 'no-store' });
+      if (r2.ok) return await r2.json();
+    } catch {}
+  }
+  throw new Error(`JSON load failed: ${primary}${fallback ? ` (fallback: ${fallback})` : ''}`);
+}
+
+/** 아이템 DB 로더(항상 절대 URL, 실패 시 1회 폴백, 캐시/병합) */
 export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemDef>> {
   if (_itemDBCache) return _itemDBCache;
+  if (_itemDBInflight) return _itemDBInflight;
 
-  // 1) 우선순위: 인자로 받은 경로 → BASE_URL/items.v1.json → 루트(/items.v1.json)
-  const primary = urlLike ? urlLike : 'items.v1.json';
-  const raw = await fetchJsonSmart(primary, '/packs/items.v1.json');
+  _itemDBInflight = (async () => {
+    const raw = await fetchJsonSmart(urlLike ?? 'items.v1.json', '/packs/items.v1.json');
+    const arr: ItemDef[] = Array.isArray(raw) ? raw : Object.values(raw || {});
+    const map: Record<string, ItemDef> = {};
+    for (const it of arr) {
+      if (!it?.id) continue;
+      map[it.id] = it;
+      const lc = it.id.toLowerCase();
+      if (!map[lc]) map[lc] = it; // ID 대소문자 혼용 보호
+    }
+    _itemDBCache = map;
+    _itemDBInflight = null;
+    return map;
+  })();
 
-  const arr: ItemDef[] = Array.isArray(raw) ? raw : Object.values(raw || {});
-  const map = Object.fromEntries(arr.map(it => [it.id, it])) as Record<string, ItemDef>;
-
-  // 소문자 키까지 넣어두면 ID 대소문자 혼용에도 안전
-  for (const it of arr) {
-    const lc = (it.id ?? '').toLowerCase();
-    if (lc && !map[lc]) map[lc] = it;
-  }
-  _itemDBCache = map;
-  return map;
+  return _itemDBInflight;
 }
 
 // ── 과목(6) 정의 ──
@@ -96,15 +125,6 @@ export interface ItemDef {
   slot: ItemSlot
   rarity: 'N'|'R'|'SR'|'SSR'
   stats?: Partial<StatsBase> & { subAtk?: Partial<Record<Subject, number>> } // 장비 스탯
-}
-
-/** 아이템 DB 로더 (public/items.v1.json) */
-export async function loadItemDB(url = 'items.v1.json'): Promise<Record<string, ItemDef>>{
-  const res = await fetch(url)
-  const list = await res.json() as ItemDef[]
-  const map: Record<string, ItemDef> = {}
-  for (const it of list) map[it.id] = it
-  return map
 }
 
 /** 장비/지급 도우미 */
