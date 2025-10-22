@@ -333,7 +333,7 @@ export default function Play() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const items = await loadItemDB(staticURL('items.v1.json'));
+        const items = await loadItemDB('/packs/items.v1.json');
       const ps = deriveBattleStats(items, loadPlayer());
       if (alive) {
         setCombatStats(ps);

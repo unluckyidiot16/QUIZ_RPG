@@ -14,7 +14,7 @@ export default function Inventory(){
   const [player, setPlayer] = useState(loadPlayer());
 
   useEffect(()=>{ (async()=>{
-    const db = await loadItemDB(import.meta.env.BASE_URL + 'items.v1.json');
+    const db = await loadItemDB('/packs/items.v1.json');
     setItems(db); setBag(loadPlayer().bag);
   })() }, []);
 

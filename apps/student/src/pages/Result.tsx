@@ -25,7 +25,7 @@ export default function Result() {
   // 아이템 DB 1회 로드
   useEffect(() => {
     (async () => {
-      const db = await loadItemDB(staticURL('items.v1.json'));
+      const db = await loadItemDB('/packs/items.v1.json');
       setItems(db);
     })();
   }, []);
@@ -49,7 +49,7 @@ export default function Result() {
     // 1) items DB가 아직 로드 안된 상태(레이스) 대비
     let it = items[id];
     if (!it) {
-      const db = await loadItemDB(staticURL('items.v1.json'));
+      const db = await loadItemDB('/packs/items.v1.json');
       setItems(db);
       it = db[id];
     }

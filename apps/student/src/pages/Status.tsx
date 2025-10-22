@@ -8,7 +8,7 @@ export default function Status(){
   const [items, setItems] = useState<Record<string, ItemDef>>({})
   const [busy, setBusy] = useState(false)
 
-  useEffect(()=>{ setPlayer(loadPlayer()); loadItemDB(import.meta.env.BASE_URL + 'items.v1.json').then(setItems) }, [])
+  useEffect(()=>{ setPlayer(loadPlayer()); loadItemDB('/packs/items.v1.json').then(setItems) }, [])
   if (!player) return <div className="p-6">로딩…</div>
 
   const lv = levelFromXp(player.totalXp)

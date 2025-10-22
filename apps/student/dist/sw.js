@@ -86,7 +86,11 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(self.__CACHE_NAME || (await caches.keys()).find(k=>k.startsWith('qd-')) || 'qd');
 
     if (req.mode === 'navigate') {
-      const cached = await cache.match('/index.html');
+      // SW 스코프 기준 index.html 경로를 계산
+      const indexPath = new URL('index.html', self.registration.scope).pathname;
+      const cached =
+        (await cache.match(indexPath)) ||
+        (await cache.match('/index.html')); // 루트 호환
       return cached || fetch(req);
     }
 
