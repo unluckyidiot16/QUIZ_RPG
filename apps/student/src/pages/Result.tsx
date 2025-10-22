@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { newRunToken, resetLocalRunState, ensureRunToken, finishDungeon, type RunSummary } from '../api';
 import { initQueue, enqueue } from '../shared/lib/queue';
 import RewardModal from '../shared/assets/RewardModal';
-import { PlayerOps, loadItemDB, type ItemDef } from '../core/player';
+import { loadPlayer, PlayerOps, loadItemDB, type ItemDef } from '../core/player';
 
 type Resp = { ok: true; idempotent: boolean } | null;
 
@@ -37,6 +37,7 @@ export default function Result() {
         if (bag && Object.keys(bag).length) {
           setRewardBag(bag);
           setRewardOpen(true);
+          localStorage.removeItem('qd:lastRewards'); // 한 번 보여줬으면 비움
         }
       } catch {}
     }
@@ -45,8 +46,11 @@ export default function Result() {
   function handleEquip(id: string) {
     const it = items[id];
     if (!it || !it.slot) return;
-    PlayerOps.equip(it.slot as any, id);
-    setRewardOpen(false);
+    const p = loadPlayer();
+    if ((p.bag?.[id] ?? 0) <= 0) {
+      PlayerOps.grantItem(id, 1);
+    }
+    PlayerOps.equip(it.slot as any, id);    setRewardOpen(false);
   }
 
 
