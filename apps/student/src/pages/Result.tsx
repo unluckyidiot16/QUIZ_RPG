@@ -43,7 +43,7 @@ export default function Result() {
     }
   }, []);
 
-  async function handleEquip(id: string) {
+  const handleEquip = async (id: string) => {
     // 1) items DB가 아직 로드 안된 상태(레이스) 대비
     let it = items[id];
     if (!it) {
@@ -59,8 +59,12 @@ export default function Result() {
     }
     PlayerOps.equip(it.slot as any, id); // 슬롯 기준 장착
     setRewardOpen(false);                // ✅ 장착 후 모달 닫기
-  }
+  };
 
+  // ✅ shared/assets/RewardModal 이 전역 함수를 찾는 경우를 대비한 브리지
+  (globalThis as any).handleEquip = handleEquip;
+  (globalThis as any).closeRewardModal = () => setRewardOpen(false);
+  
 
   async function restart() {
     await newRunToken();
