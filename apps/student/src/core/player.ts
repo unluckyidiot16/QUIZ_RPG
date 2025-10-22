@@ -1,4 +1,29 @@
+import { fetchJsonSmart, staticURL } from '../shared/lib/urls';
+
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
+
+export type ItemDef = { id: string; name: string; slot?: 'Weapon'|'Armor'|'Accessory'; rarity?: 'N'|'R'|'SR'|'SSR'; stats?: any };
+
+let _itemDBCache: Record<string, ItemDef> | null = null;
+
+export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemDef>> {
+  if (_itemDBCache) return _itemDBCache;
+
+  // 1) 우선순위: 인자로 받은 경로 → BASE_URL/items.v1.json → 루트(/items.v1.json)
+  const primary = urlLike ? urlLike : 'items.v1.json';
+  const raw = await fetchJsonSmart(primary, '/packs/items.v1.json');
+
+  const arr: ItemDef[] = Array.isArray(raw) ? raw : Object.values(raw || {});
+  const map = Object.fromEntries(arr.map(it => [it.id, it])) as Record<string, ItemDef>;
+
+  // 소문자 키까지 넣어두면 ID 대소문자 혼용에도 안전
+  for (const it of arr) {
+    const lc = (it.id ?? '').toLowerCase();
+    if (lc && !map[lc]) map[lc] = it;
+  }
+  _itemDBCache = map;
+  return map;
+}
 
 // ── 과목(6) 정의 ──
 export type Subject = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'HIST';

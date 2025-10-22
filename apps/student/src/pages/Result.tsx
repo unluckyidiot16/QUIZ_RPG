@@ -5,6 +5,7 @@ import { newRunToken, resetLocalRunState, ensureRunToken, finishDungeon, type Ru
 import { initQueue, enqueue } from '../shared/lib/queue';
 import RewardModal from '../shared/assets/RewardModal';
 import { loadPlayer, PlayerOps, loadItemDB, type ItemDef } from '../core/player';
+import { staticURL } from '../shared/lib/urls';
 
 type Resp = { ok: true; idempotent: boolean } | null;
 
@@ -16,6 +17,7 @@ export default function Result() {
   const [rewardOpen, setRewardOpen] = useState(false);
   const [rewardBag, setRewardBag] = useState<Record<string, number>>({});
   const [items, setItems] = useState<Record<string, ItemDef>>({});
+  
   
   // 오프라인 재시도 큐 가동
   useEffect(() => { initQueue(finishDungeon); }, []);
