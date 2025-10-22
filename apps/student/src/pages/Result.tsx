@@ -5,7 +5,7 @@ import { newRunToken, resetLocalRunState, ensureRunToken, finishDungeon, type Ru
 import { initQueue, enqueue } from '../shared/lib/queue';
 import RewardModal from '../shared/assets/RewardModal';
 import { loadPlayer, PlayerOps, loadItemDB, type ItemDef } from '../core/player';
-import { staticURL } from '../shared/lib/urls';
+import { appPath, staticURL } from '../shared/lib/urls';
 
 type Resp = { ok: true; idempotent: boolean } | null;
 

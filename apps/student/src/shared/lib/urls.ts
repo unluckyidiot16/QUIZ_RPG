@@ -5,6 +5,14 @@ export function appBaseURL(): URL {
   return new URL(base, origin); // ex) https://site.com/app/
 }
 
+export function appPath(path: string) {
+  const base = import.meta.env.BASE_URL || '/';
+  const p1 = base.replace(/\/+$/, '');     // '/app' or ''
+  const p2 = String(path || '').replace(/^\/+/, ''); // 'result'
+  const s = `${p1}/${p2}`.replace(/\/{2,}/g, '/');
+  return s || '/';
+}
+
 /** 상대/루트/절대 어떤 값이 와도 절대 URL로 변환 */
 export function toAbsoluteUrl(urlLike: string): string {
   if (/^https?:\/\//i.test(urlLike)) return urlLike;

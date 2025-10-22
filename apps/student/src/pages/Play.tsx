@@ -16,7 +16,7 @@ import { subjectMultiplier, SUBJECT_TO_COLOR, SKILL_HEX } from '../game/combat/a
 import { loadPlayer, loadItemDB, deriveBattleStats, SUBJECTS, type Subject } from '../core/player';
 import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
-import { staticURL } from '../shared/lib/urls';
+import { staticURL, appPath } from '../shared/lib/urls';
 
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
