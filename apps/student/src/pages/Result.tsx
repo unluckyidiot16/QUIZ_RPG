@@ -23,7 +23,7 @@ export default function Result() {
   // 아이템 DB 1회 로드
   useEffect(() => {
     (async () => {
-      const db = await loadItemDB(import.meta.env.BASE_URL + 'items.v1.json');
+      const db = await loadItemDB(staticURL('items.v1.json'));
       setItems(db);
     })();
   }, []);
@@ -47,7 +47,7 @@ export default function Result() {
     // 1) items DB가 아직 로드 안된 상태(레이스) 대비
     let it = items[id];
     if (!it) {
-      const db = await loadItemDB(import.meta.env.BASE_URL + 'items.v1.json');
+      const db = await loadItemDB(staticURL('items.v1.json'));
       setItems(db);
       it = db[id];
     }
@@ -64,8 +64,15 @@ export default function Result() {
   // ✅ shared/assets/RewardModal 이 전역 함수를 찾는 경우를 대비한 브리지
   (globalThis as any).handleEquip = handleEquip;
   (globalThis as any).closeRewardModal = () => setRewardOpen(false);
-  
 
+  function staticURL(path: string): string {
+    const base = (import.meta.env.BASE_URL || '/');
+    // base가 '/' 또는 '/subpath/' 모두 안전하게 처리
+    const root = (typeof window !== 'undefined' ? window.location.origin : '');
+    // new URL(상대경로, 절대베이스)로 항상 절대 URL을 생성
+    return new URL(path.replace(/^\//, ''), new URL(base, root)).toString();
+  }
+  
   async function restart() {
     await newRunToken();
     resetLocalRunState();
