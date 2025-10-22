@@ -42,10 +42,3 @@ export async function fetchJsonSmart(primary: string, fallback?: string) {
   }
   throw new Error(`JSON load failed: ${primary}${fallback ? ` (fallback: ${fallback})` : ''}`);
 }
-
-function appPath(path: string) {
-  const base = import.meta.env.BASE_URL || '/';
-  const p1 = base.replace(/\/+$/, '');      // '/app' or ''
-  const p2 = path.replace(/^\/+/, '');      // 'result'
-  return `${p1}/${p2}`.replace(/\/{2,}/g, '/');
-}
