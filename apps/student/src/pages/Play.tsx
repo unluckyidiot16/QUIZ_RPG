@@ -346,7 +346,7 @@ export default function Play() {
   }, []);
 
   useEffect(()=> {
-    const seed = localStorage.getItem('runToken') ?? 'dev';
+    const seed = localStorage.getItem('qd:runToken') ?? 'dev';
     const opts = selectSubjectsForTurn(stage, turnRef.current, seed);
     setOptions(opts);
     setPhase('pick');
@@ -465,7 +465,14 @@ export default function Play() {
         const atkHold = Math.max(450, atkCycle) + 140;  // Attack + 점멸
         await new Promise((r) => setTimeout(r, atkHold));
       }
-      await finalizeRun({forcedClear: battleOutcome});  // ✅ 항상 여기서 한 번만
+      try {
+        await finalizeRun({ forcedClear: battleOutcome });  // ✅ 정상 경로
+      } catch (e) {
+        console.warn('[finalizeRun] failed, fallback to result', e);
+      } finally {
+        // 어떤 경우에도 결과 화면으로 이동 (보상 로딩 실패 등 보호)
+        nav('/result', { replace: true });
+      }
       return;
     }
     // 계속 진행
@@ -488,19 +495,25 @@ export default function Play() {
     localStorage.setItem('qd:lastPack', pack);
     localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
 
-    const { clearCount } = getStageRuntime(stage.id);
-    const rewards = await applyDrops(stageDropTable(stage), `${stage.id}:${clearCount}`);
-    if (cleared) recordStageClear(stage.id);
-
-    localStorage.setItem('qd:lastRewards', JSON.stringify(rewards));
-    localStorage.setItem('qd:lastStage', stage.id);
+    try {
+      const { clearCount } = getStageRuntime(stage.id);
+      const rewards = await applyDrops(stageDropTable(stage), `${stage.id}:${clearCount}`);
+      if (cleared) recordStageClear(stage.id);
+      localStorage.setItem('qd:lastRewards', JSON.stringify(rewards ?? {}));
+      localStorage.setItem('qd:lastStage', stage.id);
+    } catch (e) {
+      console.warn('[drops] failed, continue without rewards', e);
+      localStorage.setItem('qd:lastRewards', JSON.stringify({})); // 결과 화면은 정상 표시
+      localStorage.setItem('qd:lastStage', stage.id);
+    }
 
     try {
       await proofRef.current?.summary?.({cleared, score, total} as any);
     } catch {
     }
 
-    nav('/result', {replace: true}); // ← 이동
+    // NOTE: 최종 이동은 onPick 쪽 finally에서 수행 (여기서도 중복 이동해도 무해)
+    //nav('/result', {replace: true}); // ← 이동
   }
 
   // ───────────── 임시 상성 ─────────────
