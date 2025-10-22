@@ -140,6 +140,8 @@ export default function Play() {
 
   const [playerHP, setPlayerHP] = useState(MAX_HP);
   const [enemyHP, setEnemyHP] = useState(MAX_HP);
+  const [playerMaxHP, setPlayerMaxHP] = useState<number>(MAX_HP);
+  const [enemyMaxHP, setEnemyMaxHP] = useState<number>(MAX_HP);
   const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
 
   const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
@@ -173,7 +175,9 @@ export default function Play() {
 
   useEffect(() => {
     // 적 교체 시 HP 재설정
-    setEnemyHP(Math.round(MAX_HP * (enemyDef.hpMul ?? 1)));
+    const m = Math.round(MAX_HP * (enemyDef.hpMul ?? 1));
+    setEnemyMaxHP(m);
+    setEnemyHP(m);
     // 스프라이트 프리로드
     (['Move', 'Attack', 'Die', 'Hit'] as const).forEach(state => {
       const max = stateFrameCount(enemyDef.sprite, state);
@@ -207,11 +211,11 @@ export default function Play() {
   const turnRef = useRef(1);
 
   // 간단 HP Bar(임시)
-  const HPBar = ({value, label}: { value: number; label: string }) => {
-    const pct = Math.max(0, Math.min(100, (value / MAX_HP) * 100));
+  const HPBar = ({value, max, label}: { value: number; max: number; label: string }) => {
+    const pct = Math.max(0, Math.min(100, (value / Math.max(1, max)) * 100));
     return (
       <div className="my-2">
-        <div className="text-xs opacity-80">{label} HP {value}/{MAX_HP}</div>
+        <div className="text-xs opacity-80">{label} HP {value}/{max}</div>
         <div className="w-full h-2 bg-slate-700 rounded">
           <div className="h-2 bg-emerald-500 rounded" style={{width: `${pct}%`}}/>
         </div>
@@ -330,7 +334,12 @@ export default function Play() {
     (async () => {
       const items = await loadItemDB(import.meta.env.BASE_URL + 'items.v1.json');
       const ps = deriveBattleStats(items, loadPlayer());
-      if (alive) setCombatStats(ps);
+      if (alive) {
+        setCombatStats(ps);
+        setPlayerMaxHP(ps.hp);
+        // 전투 도중 장비 변경 등으로 MaxHP가 줄어도 '힐'되진 않게 클램프
+        setPlayerHP(prev => Math.min(prev, ps.hp));
+      }
     })();
     return () => { alive = false };
   }, []);
@@ -611,8 +620,8 @@ export default function Play() {
               {' · '}S:{resolveSubject()}({SUBJECT_TO_COLOR[resolveSubject()]})
               {' vs '}ES:{resolveEnemySubject()}({SUBJECT_TO_COLOR[resolveEnemySubject()]})
               {' / '}패턴:{pattern} / 턴:{turnRef.current}            </div>
-            <HPBar value={playerHP} label="Player"/>
-            <HPBar value={enemyHP} label="Enemy"/>
+            <HPBar value={playerHP} max={playerMaxHP} label="Player"/>
+            <HPBar value={enemyHP} max={enemyMaxHP} label="Enemy"/>
           </div>
 
           {phase === 'pick' ? (
