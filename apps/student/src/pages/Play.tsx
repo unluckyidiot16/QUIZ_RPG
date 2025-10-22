@@ -471,7 +471,7 @@ export default function Play() {
         console.warn('[finalizeRun] failed, fallback to result', e);
       } finally {
         // 어떤 경우에도 결과 화면으로 이동 (보상 로딩 실패 등 보호)
-        nav('/result', { replace: true });
+        nav(appPath('result'), { replace: true });
       }
       return;
     }

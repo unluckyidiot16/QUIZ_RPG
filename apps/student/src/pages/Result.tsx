@@ -78,12 +78,12 @@ export default function Result() {
   async function restart() {
     await newRunToken();
     resetLocalRunState();
-    nav('/play', { replace: true });
+    nav(appPath('play'), { replace: true });
   }
 
   function goHome() {
     resetLocalRunState();
-    nav('/', { replace: true });
+    nav(appPath(''), { replace: true });
   }
 
   // 저장된 결과 읽기 — 객체/배열 모두 허용
