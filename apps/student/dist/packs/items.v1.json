@@ -1,0 +1,11 @@
+[
+  { "id":"w_wood_sword",   "name":"나무 검",   "slot":"Weapon",   "rarity":"N",  "stats": { "subAtk": { "MATH": 2, "SCI": 1 } } },
+  { "id":"w_iron_sword",   "name":"철 검",     "slot":"Weapon",   "rarity":"R",  "stats": { "subAtk": { "MATH": 4, "ENG": 2 } } },
+  { "id":"w_knight_blade", "name":"기사도 검", "slot":"Weapon",   "rarity":"SR", "stats": { "subAtk": { "MATH": 6, "SCI": 4 } } },
+
+  { "id":"a_cloth_armor",  "name":"천 갑옷",   "slot":"Armor",    "rarity":"N",  "stats": { "hp": 10, "def": 1, "subAtk": { "SOC": 1, "HIST": 1 } } },
+  { "id":"a_chain_mail",   "name":"체인 메일", "slot":"Armor",    "rarity":"R",  "stats": { "hp": 20, "def": 3, "subAtk": { "SOC": 2, "HIST": 1 } } },
+
+  { "id":"acc_copper_ring","name":"구리 반지", "slot":"Accessory","rarity":"N",  "stats": { "hp": 5,  "subAtk": { "KOR": 1, "ENG": 1 } } },
+  { "id":"acc_lucky_charm","name":"행운 부적", "slot":"Accessory","rarity":"R",  "stats": { "hp": 10, "subAtk": { "KOR": 2, "ENG": 1 } } }
+]
