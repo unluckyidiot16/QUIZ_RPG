@@ -37,7 +37,7 @@ export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemD
   if (_itemDBInflight) return _itemDBInflight;
 
   _itemDBInflight = (async () => {
-    const raw = await fetchJsonSmart(urlLike ?? 'items.v1.json', '/items.v1.json');
+    const raw = await fetchJsonSmart(urlLike ?? 'items.v1.json', '/packs/items.v1.json');
     const arr: ItemDef[] = Array.isArray(raw) ? raw : Object.values(raw || {});
     const map: Record<string, ItemDef> = {};
     for (const it of arr) {
