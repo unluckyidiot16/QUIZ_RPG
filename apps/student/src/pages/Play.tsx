@@ -114,8 +114,9 @@ export default function Play() {
   const [shake, setShake] = useState(false);
   const [pops, setPops] = useState<Array<{ id: number; val: number }>>([]);
   const popIdRef = useRef(0);
-  const [tpops, setTPops] = useState<Array<{ id: number; label: 'WEAK!'|'RESIST!'|'SHIELD' }>>([]);
-  const tpopIdRef = useRef(0);
+  type TagLabel = 'WEAK!' | 'RESIST!' | 'SHIELD';
+  const [tag, setTag] = useState<TagLabel | null>(null);
+  const tagTimerRef = useRef<number | undefined>(undefined);
   const [hitBorder, setHitBorder] = useState<null | 'inner' | 'outer'>(null);
 
   const [combatStats, setCombatStats] = useState<ReturnType<typeof deriveBattleStats> | null>(null);
@@ -130,11 +131,11 @@ export default function Play() {
     window.setTimeout(() => setPops((a) => a.filter((p) => p.id !== id)), 650);
   };
 
-  const pushTag = (label: 'WEAK!'|'RESIST!'|'SHIELD') => {
-    const id = ++tpopIdRef.current;
-    setTPops(a => [...a, { id, label }]);
-    window.setTimeout(() => setTPops(a => a.filter(t => t.id !== id)), 520);
-  };
+  function showTag(label: TagLabel){
+    if (tagTimerRef.current) window.clearTimeout(tagTimerRef.current);
+    setTag(label);
+    tagTimerRef.current = window.setTimeout(() => setTag(null), 520) as unknown as number;
+  }
 
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('로딩 중…');
@@ -167,7 +168,10 @@ export default function Play() {
 
   const spriteRef = useRef<HTMLImageElement | null>(null);
   const [spriteH, setSpriteH] = useState(0);
-  
+
+  const tagLatchRef = useRef<number>(0);
+
+
   useEffect(() => {
     const el = spriteRef.current;
     if (!el) return;
@@ -392,14 +396,36 @@ export default function Play() {
       
       // 3) 6각 순환 상성 배수 (kor→eng→math→sci→soc→hist→kor)
       const multS = subjectMultiplier(subj, esubj);
-      const raw   = calcDamage(base, multS);
-      const tag   = multS > 1 ? 'WEAK!' : multS < 1 ? 'RESIST!' : null;
+      const baseATK = base;                           // 가독성용 별칭
+      const raw     = calcDamage(baseATK, multS);
+
+      tagLatchRef.current++;
+      const thisLatch = tagLatchRef.current;
       
       // 4) 실드/가시 처리 유지 (실드로 0이 될 수도 있음)
       playerDmgToEnemy = applyShieldToDamage(raw, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
-      if (enemyAct.shieldActive) pushTag('SHIELD');
-      if (tag) pushTag(tag);
+
+      // === 태그 표시(우선순위: SHIELD > WEAK > RESIST) ===
+      let tagLabel: TagLabel | null = null;
+      if (enemyAct.shieldActive) {
+        // 실드가 있으면 그 사실을 우선 알림
+             tagLabel = 'SHIELD';
+         } else {
+           // 배수 방향 대신 "실제 기대 대비 증감"으로 판단
+             // (배수 정의가 뒤집혀도 UX는 일관됨)
+               if (baseATK > 0) {
+               const eff = raw / baseATK; // 실드 적용 전 순수 공격 효율
+               if (eff > 1.01) tagLabel = 'WEAK!';
+               else if (eff < 0.99) tagLabel = 'RESIST!';
+             } else {
+               // ATK=0 같은 특수 케이스는 배수로 보조 판단
+                 if (multS > 1) tagLabel = 'WEAK!';
+               else if (multS < 1) tagLabel = 'RESIST!';
+             }
+         }
+      if (tagLabel && thisLatch === tagLatchRef.current) showTag(tagLabel);
+      
     }
 
     // 3) 피해를 계산한 "후에" HP 적용
@@ -663,24 +689,23 @@ export default function Play() {
                 </div>
               ))}
               {/* 태그 팝업: WEAK!/RESIST!/SHIELD */}
-              {tpops.map(t => (
-                <div key={t.id}
-                     className="pointer-events-none absolute font-extrabold select-none"
-                     style={{
-                       left: '50%', 
-                         bottom: `${Math.max(0, Math.round((spriteH || 420) * 0.72))}px`, 
-                         transform: 'translateX(-50%)',
-                         fontSize: 'clamp(12px, 2.6vw, 18px)',
-                         lineHeight: 1,
-                         color: t.label==='WEAK!' ? 'rgb(250 204 21)' : t.label==='RESIST!' ? 'rgb(148 163 184)' : 'rgb(125 211 252)',
-                         textShadow: '0 1px 0 rgba(0,0,0,.25), 0 0 8px rgba(0,0,0,.25)',
-                         animation: 'qd-tag-pop 520ms ease-out forwards',
-                         willChange: 'transform, opacity',
-                      }}>
-                   {t.label}
-                 </div>
-               ))}
-              
+              {tag && (
+                <div
+                  className="pointer-events-none absolute font-extrabold select-none"
+                  style={{
+                    left: '50%',
+                      bottom: `${Math.max(0, Math.round((spriteH || 420) * 0.72))}px`,
+                      transform: 'translateX(-50%)',
+                      fontSize: 'clamp(12px, 2.6vw, 18px)',
+                      lineHeight: 1,
+                      color: tag==='WEAK!' ? 'rgb(250 204 21)' : tag==='RESIST!' ? 'rgb(148 163 184)' : 'rgb(125 211 252)',
+                      textShadow: '0 1px 0 rgba(0,0,0,.25), 0 0 8px rgba(0,0,0,.25)',
+                      animation: 'qd-tag-pop 520ms ease-out forwards',
+                      willChange: 'transform, opacity',
+                  }}>
+                  {tag}
+                </div>
+              )}
             </div>
             <div className="text-xs opacity-70">
               적:{enemyDef.name}
