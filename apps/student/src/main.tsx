@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider, redirect } from 'react-router-dom';
 import { loadPlayer, getBaseStats } from './core/player';
 import './sw-register';
+import './index.css';  // ← Tailwind 엔트리 (필수)
 
 import AppShell from './app/AppShell';
 
