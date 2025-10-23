@@ -34,7 +34,7 @@ const router = createBrowserRouter([
   {
     element: <AppShell />,                 // ✅ 헤더는 여기서만
     children: [
-      { index: true, element: <Main/> },
+      { index: true, loader: requireCharacter, element: <Main/> },  // ← 가드 추가
       { path: '/status', loader: requireCharacter, element: <Status/> },
       { path: '/lobby', element: <Lobby/> },
       { path: '/play', loader: requireCharacter, element: <Play/> },

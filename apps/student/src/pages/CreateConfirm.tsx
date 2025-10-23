@@ -29,13 +29,14 @@ export default function CreateConfirm() {
     );
   }
 
-  const total = Object.values(earned).reduce((a, b) => a + b, 0);
-
+  const e = earned as Stats;            // ← 확정 바인딩
+  const total = Object.values(e).reduce((a, b) => a + b, 0);
+  
   const label = subjectLabel;
 
   function confirm() {
     // baseStats만 세팅하고 나머지는 기본값(레벨/장비 등)
-    PlayerOps.createCharacter?.({baseStats: earned});
+    PlayerOps.createCharacter?.({baseStats: e});
     nav(appPath('/play'), {replace: true});
   }
 
@@ -118,7 +119,6 @@ export default function CreateConfirm() {
     );
   }
   
-  const e = earned!;
   return (
     <div className="max-w-5xl mx-auto p-6">
         <p className="opacity-80 mt-2">총 {total}포인트를 획득했습니다.</p>
