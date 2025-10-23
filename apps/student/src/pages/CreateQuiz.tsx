@@ -3,18 +3,62 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appPath } from '../shared/lib/urls';
 import type { Stats, Subject } from '../core/char.types';
-import { SUBJECTS, SUBJECT_ORDER_10, subjectLabel } from '../core/char.types';
+import { SUBJECTS, subjectLabel } from '../core/char.types';
 
 import { makeServices } from '../core/service.locator';
 
-const ORDER: Subject[] = SUBJECT_ORDER_10;
+// 문제팩 URL 생성 (Play.tsx와 동일 로직 축약)
+function resolvePackUrl(pack: string) {
+    const base = import.meta.env.BASE_URL || '/';
+    const url = new URL(base, window.location.origin);
+    url.pathname = url.pathname.replace(/\/$/, '') + `/packs/${pack}.json`;
+    return url.toString();
+  }
 
+type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
+type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
+
+  function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
+      if (typeof answerKey === 'string' && /^[ABCD]$/.test(answerKey)) return answerKey as any;
+      if (typeof answer === 'string' && /^[ABCD]$/.test(answer)) return answer as any;
+      const idx = (typeof correctIndex === 'number' ? correctIndex
+          : typeof answer === 'number' ? answer
+          : typeof answerKey === 'number' ? answerKey
+          : -1);
+      if (idx >= 0 && idx <= 3) return (['A','B','C','D'] as const)[idx];
+      return null;
+    }
+function normalizeQuestion(raw: any, i: number): Question | null {
+    if (!raw) return null;
+    const keys = ['A','B','C','D'] as const;
+    if (raw.stem && Array.isArray(raw.choices)) {
+        const normChoices: Choice[] = (raw.choices as any[]).slice(0,4).map((t,idx)=>({ key: keys[idx], text: typeof t==='string'?t:(t?.text??String(t)) }));
+        const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
+        return ans ? { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans, explanation: raw.explanation } : null;
+      }
+    if (raw.stem && Array.isArray(raw.options)) {
+        const normChoices: Choice[] = (raw.options as any[]).slice(0,4).map((t,idx)=>({ key: keys[idx], text: typeof t==='string'?t:(t?.text??String(t)) }));
+        const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
+        return ans ? { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans } : null;
+      }
+    if (raw.stem && (raw.A || raw.B || raw.C || raw.D)) {
+        const normChoices: Choice[] = keys.filter(k=>raw[k]!=null).map(k=>({ key: k, text: String(raw[k]) }));
+        const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
+        return ans ? { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans } : null;
+      }
+    return null;
+  }
 export default function CreateQuiz(){
   const nav = useNavigate();
-  const [idx, setIdx] = useState(0);
+  const [idx, setIdx] = useState(0);  
   const [earned, setEarned] = useState<Stats>({KOR:0,ENG:0,MATH:0,SCI:0,SOC:0,HIST:0});
-  const subj = ORDER[idx];
-  const progress = Math.round(((idx)/10)*100);
+  const progress = Math.round((idx/10)*100);
+  const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
+  const [currentSubj, setCurrentSubj] = useState<Subject | null>(null);
+  const [currentQ, setCurrentQ] = useState<Question | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string>('');
+  const pack = 'sample'; // 필요 시 쿼리/설정으로 교체
 
 
   // ── 미니 캐릭터 프리뷰 상태(옷장 미리보기 축약) ──
@@ -22,14 +66,73 @@ export default function CreateQuiz(){
   const [invState, setInvState] = useState<any>(null);
   useEffect(()=>{ (async()=> setInvState(await inv.load()))(); }, [inv]);
   const previewEquipped = invState?.equipped || {};
+
+  // ── 문제팩 로드 & 과목별 큐 구성 ──
+  const [bySubj, setBySubj] = useState<Record<Subject, Question[]>>({KOR:[],ENG:[],MATH:[],SCI:[],SOC:[],HIST:[]});
+  const [pool, setPool] = useState<Question[]>([]);
+  const [used, setUsed] = useState<Set<string>>(new Set());
+  useEffect(()=> {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(resolvePackUrl(pack), { cache:'reload', signal: ac.signal });
+        let rawList: any = [];
+        if (res.ok) rawList = await res.json(); else rawList = [{ id:'init', stem:'샘플: A를 고르세요', choices:['A','B','C','D'], answerKey:'A' }];
+        const arr = Array.isArray(rawList) ? rawList : (rawList?.questions ?? rawList?.items ?? rawList?.data?.questions ?? []);
+        const clean: Question[] = [];
+        arr.forEach((raw:any, i:number) => { const nq = normalizeQuestion(raw, i); if (nq) clean.push(nq); });
+        // 과목 추출(가능하면), 없으면 분류하지 않고 풀(pool)에 남김
+        const map: Record<Subject, Question[]> = {KOR:[],ENG:[],MATH:[],SCI:[],SOC:[],HIST:[]};
+        const korMap: Record<string, Subject> = { '국어':'KOR','영어':'ENG','수학':'MATH','과학':'SCI','사회':'SOC','역사':'HIST' };
+        for (const q of clean){
+          const sRaw = (arr[q.id as any]?.subject ?? arr[q.id as any]?.subj ?? arr[q.id as any]?.category ?? arr[q.id as any]?.tag ?? arr[q.id as any]?.tags) as any;
+          const toCode = (v:string): Subject | null => {
+            const up = (v||'').toString().toUpperCase();
+            if ((SUBJECTS as readonly string[]).includes(up)) return up as Subject;
+            const ko = korMap[v as string]; return ko ?? null;
+          };
+          let code: Subject | null = null;
+          if (typeof sRaw === 'string') code = toCode(sRaw);
+          else if (Array.isArray(sRaw)) code = (sRaw.map(x=>toCode(x)).find(Boolean) as Subject | undefined) ?? null;
+          if (code) map[code].push(q);
+        }
+        setBySubj(map);
+        setPool(clean);
+        setUsed(new Set());
+      } catch (e:any){
+        setMsg(e?.message ?? '팩 로드 실패');
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+    }, []);
   
-  function onAnswer(correct: boolean){
-    const nextEarned = correct ? { ...earned, [subj]: earned[subj] + 1 } : earned; // ← stale 방지
+  // 과목 클릭 → 해당 과목 문제 선택
+  function chooseSubject(s: Subject){
+    setCurrentSubj(s);
+    // 미사용 문제 우선, 없으면 전체 풀에서 미사용 1개
+    const list = bySubj[s];
+    const cand = (list?.find(q => !used.has(q.id))) || (pool.find(q => !used.has(q.id)));
+    if (!cand) { setMsg('더 이상 선택할 문항이 없습니다.'); return; }
+    setCurrentQ(cand);
+    setPhase('quiz');
+  }
+  
+  function onAnswer(pick: Choice['key']){
+    if (!currentQ || !currentSubj) return;
+    const correct = (pick === currentQ.answerKey);
+    const nextEarned = correct ? { ...earned, [currentSubj]: earned[currentSubj] + 1 } : earned;
     const next = idx + 1;
+    setEarned(nextEarned);
+    setUsed(prev => new Set(prev).add(currentQ.id));
+    setCurrentQ(null);
+    setCurrentSubj(null);
+    setPhase('pick');
     if (next >= 10) {
-      nav(appPath('/create/confirm'), { replace: true, state: { earned: nextEarned } });
+      nav(appPath('/create/confirm'), { replace:true, state:{ earned: nextEarned } });
     } else {
-      setEarned(nextEarned);
       setIdx(next);
     }
   }
@@ -106,6 +209,7 @@ export default function CreateQuiz(){
     );
   }
 
+  if (loading) return <div className="p-6">로딩 중…</div>;
   return (
     <div className="max-w-5xl mx-auto p-6">
       <h1 className="text-2xl font-bold">캐릭터 생성: 과목 퀴즈 (10문항)</h1>
@@ -117,13 +221,14 @@ export default function CreateQuiz(){
         <div className="mt-2 text-sm opacity-80">{idx+1}/10</div>
       </div>
 
+      {/* 현재 과목 표시는 퀴즈 단계에서만 */}
       <div className="mt-4 flex items-center gap-2">
         <span className="text-sm opacity-70">현재 과목:</span>
         <span className="px-2 py-1 rounded bg-indigo-600/30 border border-indigo-400/50">
-          {label(subj)}
-        </span>
-      </div>
-
+      {phase === 'quiz' && currentSubj ? label(currentSubj) : '과목 선택'}
+          </span>
+        </div>
+      <div className="mt-4 text-sm opacity-80">현재 문항: {idx+1}/10</div>
       {/* 본문: 좌 = 캐릭터 미리보기, 우 = 레이더/요약 + 문제 */}
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         {/* 왼쪽: Wardrobe 미리보기 축약판 */}
@@ -146,14 +251,41 @@ export default function CreateQuiz(){
               ))}
             </ul>
           </div>
-          {/* TODO: 실제 문항 렌더러로 교체 */}
-          <div className="mt-4 p-4 rounded-lg bg-slate-900/50">
-            <p className="opacity-80">여기에 <b>{label(subj)}</b> 문제를 렌더링하세요.</p>
-            <div className="mt-4 flex gap-2">
-              <button className="px-4 py-2 rounded bg-emerald-600" onClick={()=>onAnswer(true)}>정답</button>
-              <button className="px-4 py-2 rounded bg-slate-700" onClick={()=>onAnswer(false)}>오답</button>
+          {/* 과목 선택/문제 영역 */}
+          {phase === 'pick' ? (
+            <div className="mt-4 p-4 rounded-lg bg-slate-900/50">
+              <div className="font-medium mb-2">과목을 선택하세요</div>
+              <div className="grid grid-cols-2 gap-2">
+                {SUBJECTS.map(s => (
+                  <button key={s} className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 transition"
+                          onClick={()=>chooseSubject(s)}>
+                    {label(s)}
+                  </button>
+                ))}
+              </div>
+              {!!msg && <div className="text-rose-300 text-sm mt-2">{msg}</div>}
             </div>
-               </div>
+          ) : (
+            <div className="mt-4 p-4 rounded-lg bg-slate-900/50">
+              <div className="text-sm opacity-80 mb-2">현재 과목: <b>{currentSubj ? label(currentSubj) : '-'}</b></div>
+              {currentQ ? (
+                <>
+                <div className="font-medium whitespace-pre-wrap">{currentQ.stem}</div>
+                <div className="grid gap-2 mt-3">
+                  {currentQ.choices.map(c => (
+                    <button key={c.key}
+                            className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
+                            onClick={()=>onAnswer(c.key)}>
+                      <span className="font-bold mr-2">{c.key}.</span>{c.text}
+                    </button>
+                  ))}
+                </div>
+                </>
+              ) : (
+                <div className="text-sm text-rose-300">문항을 찾을 수 없습니다.</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
