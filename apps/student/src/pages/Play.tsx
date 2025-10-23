@@ -17,6 +17,7 @@ import { loadPlayer, loadItemDB, deriveBattleStats, SUBJECTS, type Subject } fro
 import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
 import { staticURL, appPath } from '../shared/lib/urls';
+import { RunSummary } from '../core/run.types'
 
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
@@ -113,6 +114,8 @@ export default function Play() {
   const [shake, setShake] = useState(false);
   const [pops, setPops] = useState<Array<{ id: number; val: number }>>([]);
   const popIdRef = useRef(0);
+  const [tpops, setTPops] = useState<Array<{ id: number; label: 'WEAK!'|'RESIST!'|'SHIELD' }>>([]);
+  const tpopIdRef = useRef(0);
   const [hitBorder, setHitBorder] = useState<null | 'inner' | 'outer'>(null);
 
   const [combatStats, setCombatStats] = useState<ReturnType<typeof deriveBattleStats> | null>(null);
@@ -125,6 +128,12 @@ export default function Play() {
     const id = ++popIdRef.current;
     setPops((a) => [...a, {id, val}]);
     window.setTimeout(() => setPops((a) => a.filter((p) => p.id !== id)), 650);
+  };
+
+  const pushTag = (label: 'WEAK!'|'RESIST!'|'SHIELD') => {
+    const id = ++tpopIdRef.current;
+    setTPops(a => [...a, { id, label }]);
+    window.setTimeout(() => setTPops(a => a.filter(t => t.id !== id)), 520);
   };
 
   const [loading, setLoading] = useState(true);
@@ -383,11 +392,14 @@ export default function Play() {
       
       // 3) 6각 순환 상성 배수 (kor→eng→math→sci→soc→hist→kor)
       const multS = subjectMultiplier(subj, esubj);
-      const raw   = calcDamage(base, multS);         // 안정형(최소피해=0, Floor)
+      const raw   = calcDamage(base, multS);
+      const tag   = multS > 1 ? 'WEAK!' : multS < 1 ? 'RESIST!' : null;
       
       // 4) 실드/가시 처리 유지 (실드로 0이 될 수도 있음)
       playerDmgToEnemy = applyShieldToDamage(raw, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
+      if (enemyAct.shieldActive) pushTag('SHIELD');
+      if (tag) pushTag(tag);
     }
 
     // 3) 피해를 계산한 "후에" HP 적용
@@ -491,13 +503,21 @@ export default function Play() {
     setMsg('결과 정리 중…');
     const turns = turnsRef.current;
     const total = Math.max(1, questions.length);
-    const score = turns.filter(t => t.correct).length;
-    const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
-    const passByScore = score >= Math.ceil(total * 0.6); // 통과 기준(60%)
+    const correct = turns.filter(t => t.correct).length;
+    const wrong   = total - correct;
+    const turnsCount = turns.length;    const durationSec = Math.max(1, Math.round((Date.now() - (startAtRef.current || Date.now())) / 1000));
+    const passByScore = correct >= Math.ceil(total * 0.6); // 통과 기준(60%)    
     // 전투 즉시판정이 있으면 우선, 없으면 점수 기준
     const cleared = (typeof opts?.forcedClear === 'boolean') ? opts!.forcedClear : passByScore;
 
-    const summary = {cleared, turns: total, durationSec};
+    const summary: RunSummary = {
+        cleared,
+          turns: turnsCount,
+          durationSec,
+          correct,
+          wrong,
+      time: new Date().toISOString()
+    };
     localStorage.setItem('qd:lastResult', JSON.stringify(summary));
     localStorage.setItem('qd:lastPack', pack);
     localStorage.setItem('qd:lastTurns', JSON.stringify(turns));
@@ -515,7 +535,13 @@ export default function Play() {
     }
 
     try {
-      await proofRef.current?.summary?.({cleared, score, total} as any);
+      await proofRef.current?.summary?.({
+          cleared,
+          score: correct,       // ← 기존 score → correct 로 대체
+          total,
+          turns: turnsCount,    // (선택) 함께 넘기면 나중에 분석에 도움
+          durationSec           // (선택)
+      } as any);
     } catch {
     }
 
@@ -636,6 +662,25 @@ export default function Play() {
                   -{p.val}
                 </div>
               ))}
+              {/* 태그 팝업: WEAK!/RESIST!/SHIELD */}
+              {tpops.map(t => (
+                <div key={t.id}
+                     className="pointer-events-none absolute font-extrabold select-none"
+                     style={{
+                       left: '50%', 
+                         bottom: `${Math.max(0, Math.round((spriteH || 420) * 0.72))}px`, 
+                         transform: 'translateX(-50%)',
+                         fontSize: 'clamp(12px, 2.6vw, 18px)',
+                         lineHeight: 1,
+                         color: t.label==='WEAK!' ? 'rgb(250 204 21)' : t.label==='RESIST!' ? 'rgb(148 163 184)' : 'rgb(125 211 252)',
+                         textShadow: '0 1px 0 rgba(0,0,0,.25), 0 0 8px rgba(0,0,0,.25)',
+                         animation: 'qd-tag-pop 520ms ease-out forwards',
+                         willChange: 'transform, opacity',
+                      }}>
+                   {t.label}
+                 </div>
+               ))}
+              
             </div>
             <div className="text-xs opacity-70">
               적:{enemyDef.name}

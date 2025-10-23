@@ -118,6 +118,7 @@ export type ItemSlot = EquipmentSlot
 export interface ItemDef {
   id: string
   name: string
+  thumb : string
   slot: ItemSlot
   rarity: 'N'|'R'|'SR'|'SSR'
   stats?: Partial<StatsBase> & { subAtk?: Partial<Record<Subject, number>> } // 장비 스탯

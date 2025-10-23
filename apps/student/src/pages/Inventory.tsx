@@ -52,9 +52,23 @@ export default function Inventory(){
           const equippedId = player.equipment[slot];
           const selected = equippedId === it.id;
           const price = fmtPriceByRarity(it.rarity);
+          const borderByRarity = it.rarity==='SSR' ? 'border-fuchsia-400'
+            : it.rarity==='SR' ? 'border-violet-400'
+              : it.rarity==='R'  ? 'border-sky-400'
+                : 'border-white/10';
           return (
             <div key={it.id} className={`group text-left border rounded-xl p-2 transition ${selected ? "border-emerald-500 bg-emerald-500/10" : "border-white/10 bg-white/5"}`}>
               <div className="text-sm font-medium">{it.name}</div>
+                {/* 썸네일 */}
+                <div className={`mt-1 rounded-xl overflow-hidden border ${selected ? "border-emerald-500 bg-emerald-500/10" : borderByRarity+" bg-black/20"}`}>
+                  <img
+                    src={it.thumb}
+                    alt={it.name}
+                    loading="lazy"
+                    className="w-full aspect-square object-contain pointer-events-none select-none"
+                 />
+              </div>
+              <div className="mt-1 text-sm font-medium">{it.name}</div>
               <div className="text-xs opacity-70">{SLOT_LABEL[it.slot as Slot]} · {it.rarity}</div>
               <div className="mt-1 text-xs opacity-80">{fmtStats(it)}</div>
               <div className="mt-2 flex items-center justify-between">
