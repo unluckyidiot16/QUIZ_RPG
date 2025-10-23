@@ -3,9 +3,28 @@ import { SUBJECTS } from './char.types';
 
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
+// 로컬스토리지 I/O
+const LS_KEY = 'qd:player';
+export function loadPlayer(): any {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+export function savePlayer(p: any) {
+  localStorage.setItem(LS_KEY, JSON.stringify(p));
+}
+
+// 1) 기본 값 생성기 (하드코딩 없이 SUBJECTS 기반)
+export const zeroStats = (): Stats =>
+  SUBJECTS.reduce((acc, s) => (acc[s] = 0, acc), {} as Stats);
+
 let _itemDBCache: Record<string, ItemDef> | null = null;
 let _itemDBInflight: Promise<Record<string, ItemDef>> | null = null;
 
+/** 어디서든 '플레이어의 베이스 스탯'을 안전하게 얻는 단일 진입점 */
+export function getBaseStats(p: any): Stats | null {
+  const bs = p?.character?.baseStats ?? p?.stats;
+  return bs ? ({ ...zeroStats(), ...bs }) : null;
+}
 function appBaseURL(): URL {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
   const base = (import.meta as any)?.env?.BASE_URL ?? (import.meta as any)?.env?.BASE ?? (import.meta.env?.BASE_URL ?? '/');
@@ -29,6 +48,7 @@ async function fetchJsonSmart(primary: string, fallback?: string) {
   }
   throw new Error(`JSON load failed: ${primary}${fallback ? ` (fallback: ${fallback})` : ''}`);
 }
+
 
 //** 아이템 DB 로더(항상 절대 URL, 실패 시 1회 폴백, 캐시/병합) */
 export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemDef>> {
@@ -84,20 +104,20 @@ export function normalizeSubAtk(x?: Partial<Record<Subject, number>> | Record<st
   return out;
 }
 
-export function loadPlayer(): PlayerState {
-  try {
-    const raw = JSON.parse(localStorage.getItem(K) ?? 'null') as Partial<PlayerState> | null;
-    return {
-      totalXp: raw?.totalXp ?? DEF.totalXp,
-      base: { hp: raw?.base?.hp ?? DEF.base.hp, def: raw?.base?.def ?? DEF.base.def },
-      subAtk: normalizeSubAtk((raw as any)?.subAtk),
-      equipment: (raw?.equipment ?? {}) as PlayerState['equipment'],
-      bag: raw?.bag ?? {},
-      version: DEF.version,
-    };
-  } catch { return { ...DEF } }
+// 3) 레거시 모양 보정: p.stats만 있으면 character.baseStats로 승격
+export function migratePlayerShape(p: any) {
+  p = p ?? {};
+  p.bag = p.bag ?? {};
+  p.equipment = p.equipment ?? {};
+  p.character = p.character ?? {};
+  // 레거시: p.stats만 있던 데이터 → character.baseStats로 승격
+  if (!p.character.baseStats) {
+    const legacy = (p.stats && typeof p.stats === 'object') ? p.stats : null;
+    p.character.baseStats = legacy ? { ...zeroStats(), ...legacy }
+      : (p.character.baseStats ?? zeroStats());
+  }
+  return p;
 }
-export function savePlayer(s: PlayerState){ localStorage.setItem(K, JSON.stringify(s)) }
 
 /** xp_for_level(n) = base * n^1.6 (round) */
 export function xpForLevel(n: number, base = 20){ return Math.round(base * Math.pow(n, 1.6)) }
@@ -125,24 +145,52 @@ export interface ItemDef {
 }
 
 /** 장비/지급 도우미 */
+// player.ts (동일 파일 내, 위 헬퍼들 아래)
 export const PlayerOps = {
-  load(){ return JSON.parse(localStorage.getItem('qd:player')||'{}'); },
-  save(p:any){ localStorage.setItem('qd:player', JSON.stringify(p)); },
+  /** 캐릭터 생성: baseStats 저장 + 레거시(p.stats) 동기화 */
   createCharacter({ baseStats }: { baseStats: Stats }) {
-    const p = this.load();
-    p.character = { id:'char-1', level:1, exp:0, baseStats, equip:{} };
-    this.save(p);
+    const p = migratePlayerShape(loadPlayer());
+    p.character = {
+      id: p.character?.id ?? 'char-1',
+      level: 1,
+      exp: 0,
+      baseStats: { ...zeroStats(), ...baseStats },
+      equip: p.character?.equip ?? {},
+    };
+    // 레거시 호환: 일부 화면이 p.stats를 볼 수 있으므로 복사
+    p.stats = { ...p.character.baseStats };
+    savePlayer(p);
+    return p;
   },
-  grantXp(delta: number){
-    const s = loadPlayer(); s.totalXp = Math.max(0, s.totalXp + Math.round(delta)); savePlayer(s); return s
+
+  /** 경험치 지급 */
+  grantXp(delta: number) {
+    const s = migratePlayerShape(loadPlayer());
+    s.totalXp = Math.max(0, Math.round((s.totalXp ?? 0) + delta));
+    savePlayer(s);
+    return s;
   },
-  grantItem(id: string, count = 1){
-    const s = loadPlayer(); s.bag[id] = Math.max(0, (s.bag[id] ?? 0) + count); if (s.bag[id]===0) delete s.bag[id]; savePlayer(s); return s
+
+  /** 아이템 지급(개수형 인벤토리) */
+  grantItem(id: string, count = 1) {
+    const s = migratePlayerShape(loadPlayer());
+    s.bag[id] = Math.max(0, (s.bag[id] ?? 0) + count);
+    if (s.bag[id] === 0) delete s.bag[id];
+    savePlayer(s);
+    return s;
   },
-  equip(slot: EquipmentSlot, itemId: string|undefined){
-    const s = loadPlayer(); if (itemId) s.equipment[slot] = itemId; else delete s.equipment[slot]; savePlayer(s); return s
-  }
-}
+
+  /** 장비 장착/해제(슬롯 기반) */
+  // EquipmentSlot 타입 경로가 다르면 해당 경로로 수정
+  equip(slot: /* EquipmentSlot */ any, itemId: string | undefined) {
+    const s = migratePlayerShape(loadPlayer());
+    if (itemId) s.equipment[slot] = itemId;
+    else delete s.equipment[slot];
+    savePlayer(s);
+    return s;
+  },
+};
+
 
 /** 최종 전투 스탯 계산: (기본 + 장비합산) */
 export interface CombatStats { hp:number; def:number; subAtk: SubjectPower }
