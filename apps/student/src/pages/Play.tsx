@@ -12,7 +12,7 @@ import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../game/combat/sp
 import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
 import type { EnemyState } from '../game/combat/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
-import { subjectMultiplier, SUBJECT_TO_COLOR, SKILL_HEX } from '../game/combat/affinity';
+import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../game/combat/affinity';
 import { loadPlayer, loadItemDB, deriveBattleStats, SUBJECTS, type Subject } from '../core/player';
 import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
@@ -383,10 +383,10 @@ export default function Play() {
       
       // 3) 6각 순환 상성 배수 (kor→eng→math→sci→soc→hist→kor)
       const multS = subjectMultiplier(subj, esubj);
-      const withAff = Math.ceil(base * multS);
+      const raw   = calcDamage(base, multS);         // 안정형(최소피해=0, Floor)
       
-      // 4) 실드/가시 처리 유지
-      playerDmgToEnemy = applyShieldToDamage(withAff, enemyAct.shieldActive);
+      // 4) 실드/가시 처리 유지 (실드로 0이 될 수도 있음)
+      playerDmgToEnemy = applyShieldToDamage(raw, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
     }
 
@@ -396,18 +396,25 @@ export default function Play() {
 
     // 4) 애니메이션 상태 전환
 
-    if (isCorrect && playerDmgToEnemy > 0) {
-      pushDamage(playerDmgToEnemy);     // "-12" 팝업
-      triggerShake(100);                // 짧은 흔들림
+    if (isCorrect) {
+      // 피해가 0이어도 팝업/약한 피격 연출(헷갈림 방지)
+      pushDamage(playerDmgToEnemy);        // "-0"도 표시됨
+      triggerShake(playerDmgToEnemy > 0 ? 100 : 60);
       if (nextEnemy > 0) {
-        setEnemyState('Hit');
-        if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
-        const hitFps = FPS_BY_STATE.Hit;
-        const hitCycle = Math.ceil((1000 / hitFps) * Math.max(1, stateFrameCount(enemyDef.sprite, 'Hit')));
-        const hitHold = Math.max(220, Math.min(360, hitCycle)); // 0.22~0.36s 사이
-        hitTimerRef.current = window.setTimeout(() => {
-          setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
-        }, hitHold);
+        if (playerDmgToEnemy > 0) {
+          setEnemyState('Hit');
+          if (hitTimerRef.current) clearTimeout(hitTimerRef.current);
+          const hitFps = FPS_BY_STATE.Hit;
+          const hitCycle = Math.ceil((1000 / hitFps) * Math.max(1, stateFrameCount(enemyDef.sprite, 'Hit')));
+          const hitHold = Math.max(220, Math.min(360, hitCycle));
+          hitTimerRef.current = window.setTimeout(() => {
+            setEnemyState(prev => (prev === 'Die' ? 'Die' : 'Move'));
+            }, hitHold);
+        } else {
+          // 0피해: 살짝만 경계선 번쩍(빠르게)
+          setHitBorder('inner');
+          window.setTimeout(() => setHitBorder(null), 160);
+        }
       }
     }
 

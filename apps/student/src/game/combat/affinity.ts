@@ -4,6 +4,15 @@ export type SkillColor = 'blank'|'blue'|'dark'|'green'|'red'|'yellow';
 
 export const SUBJECT_ORDER: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
 
+export const BAL = {
+  WEAK_MULT: 1.5,      // 유리
+  RESIST_MULT: 0.5,    // 불리 (0은 소프트락 유발 가능, 튜토리얼 제외 권장 X)
+  IMMUNE_MULT: 0,      // 완전 면역 (특수 적에서만 사용)
+  MIN_HIT_DAMAGE: 0,   // ← 요청대로 0피해 허용(UX로 표시)
+};
+
+const WHEEL: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
+
 export const SUBJECT_TO_COLOR: Record<Subject, SkillColor> = {
   KOR:'blank', ENG:'blue', MATH:'dark', SCI:'green', SOC:'red', HIST:'yellow',
 };
@@ -26,10 +35,24 @@ export const COLOR_CLS = {
 } as const;
 
 // 6각 순환 상성: att가 def의 '다음 칸'이면 강(1.25), '이전 칸'이면 약(0.8)
-export function subjectMultiplier(att: Subject, def: Subject): number {
-  const N = SUBJECT_ORDER.length; const ai = SUBJECT_ORDER.indexOf(att); const di = SUBJECT_ORDER.indexOf(def);
-  if (ai < 0 || di < 0) return 1.0;
-  if ((ai + 1) % N === di) return 1.25;
-  if ((di + 1) % N === ai) return 0.8;
+export function subjectMultiplier(attacker: Subject, defender: Subject): number {
+  if (!attacker || !defender) return 1.0;
+  if (attacker === defender) return 1.0;
+  const a = WHEEL.indexOf(attacker);
+  const d = WHEEL.indexOf(defender);
+  if (a < 0 || d < 0) return 1.0;
+
+  // 유리: 공격자의 다음 칸이 방어자
+  if (d === (a + 1) % WHEEL.length) return BAL.WEAK_MULT;
+  // 불리: 공격자의 이전 칸이 방어자
+  if (d === (a + WHEEL.length - 1) % WHEEL.length) return BAL.RESIST_MULT;
+
   return 1.0;
+}
+
+/** 안정형 데미지: (atk * mult) 를 바닥(Floor), min-hit 보정(옵션) */
+export function calcDamage(atk: number, mult: number, minHit = BAL.MIN_HIT_DAMAGE): number {
+  let dmg = Math.floor(Math.max(0, atk) * Math.max(0, mult));
+  if (mult > 0 && dmg < minHit) dmg = minHit;  // 지금은 minHit=0 → 0 허용
+  return dmg;
 }
