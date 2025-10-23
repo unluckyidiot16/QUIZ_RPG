@@ -17,6 +17,9 @@ import Wardrobe from './pages/Wardrobe';
 import Codex from './pages/Codex';
 import TokenGatePage from './pages/TokenGatePage';
 import NotFound from './pages/NotFound';
+import CreateQuiz from './pages/CreateQuiz';
+import CreateConfirm from './pages/CreateConfirm';
+
 
 import { bootstrapApp } from './core/bootstrap';
 
@@ -33,6 +36,8 @@ const router = createBrowserRouter([
       { path: '/inventory', element: <Inventory/> },
       { path: '/wardrobe', element: <Wardrobe/> },
       { path: '/codex', element: <Codex/> },
+      { path: '/create/quiz', element: <CreateQuiz/> },
+      { path: '/create/confirm', element: <CreateConfirm/> },
     ],
   },
   // ✅ 차단/토큰 화면은 헤더 없이

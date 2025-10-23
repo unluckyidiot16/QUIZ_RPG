@@ -1,3 +1,6 @@
+import type { Stats } from './char.types';
+import { SUBJECTS } from './char.types';
+
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
 let _itemDBCache: Record<string, ItemDef> | null = null;
@@ -27,7 +30,7 @@ async function fetchJsonSmart(primary: string, fallback?: string) {
   throw new Error(`JSON load failed: ${primary}${fallback ? ` (fallback: ${fallback})` : ''}`);
 }
 
-/** 아이템 DB 로더(항상 절대 URL, 실패 시 1회 폴백, 캐시/병합) */
+//** 아이템 DB 로더(항상 절대 URL, 실패 시 1회 폴백, 캐시/병합) */
 export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemDef>> {
   if (_itemDBCache) return _itemDBCache;
   if (_itemDBInflight) return _itemDBInflight;
@@ -52,10 +55,7 @@ export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemD
 
 // ── 과목(6) 정의 ──
 export type Subject = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'HIST';
-export const SUBJECTS: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];
-export const SUBJECT_LABEL: Record<Subject,string> = {
-  KOR:'국어', ENG:'영어', MATH:'수학', SCI:'과학', SOC:'사회', HIST:'역사'
-};
+
 export type SubjectPower = Record<Subject, number>;
 
 export interface StatsBase { hp:number; def:number }
@@ -126,6 +126,13 @@ export interface ItemDef {
 
 /** 장비/지급 도우미 */
 export const PlayerOps = {
+  load(){ return JSON.parse(localStorage.getItem('qd:player')||'{}'); },
+  save(p:any){ localStorage.setItem('qd:player', JSON.stringify(p)); },
+  createCharacter({ baseStats }: { baseStats: Stats }) {
+    const p = this.load();
+    p.character = { id:'char-1', level:1, exp:0, baseStats, equip:{} };
+    this.save(p);
+  },
   grantXp(delta: number){
     const s = loadPlayer(); s.totalXp = Math.max(0, s.totalXp + Math.round(delta)); savePlayer(s); return s
   },
@@ -189,4 +196,6 @@ export function grantXpAndCheckLevel(delta:number){
   s.totalXp = Math.max(0, s.totalXp + Math.round(delta)); savePlayer(s);
   const after = levelFromXp(s.totalXp).level; for (let lv=before+1; lv<=after; lv++) pushLevelUp(lv);
   return { before, after };
+  
+  
 }
