@@ -3,9 +3,9 @@
   { "id":"w_iron_sword",   "name":"철 검",     "slot":"Weapon",   "rarity":"R", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Weapon/iron_sword.png", "stats": { "subAtk": { "MATH": 4, "ENG": 2 } } },
   { "id":"w_knight_blade", "name":"기사도 검", "slot":"Weapon",   "rarity":"SR", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Weapon/knight_blade.png", "stats": { "subAtk": { "MATH": 6, "SCI": 4 } } },
 
-  { "id":"a_wood_shield",  "name":"나무 방패",   "slot":"Armor",    "rarity":"N", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Weapon/wood_shield.png", "stats": { "hp": 10, "def": 1, "subAtk": { "SOC": 1, "HIST": 1 } } },
-  { "id":"a_iron_mail",   "name":"체인 메일", "slot":"Armor",    "rarity":"R", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Weapon/iron_mail.png", "stats": { "hp": 20, "def": 3, "subAtk": { "SOC": 2, "HIST": 1 } } },
+  { "id":"a_wood_shield",  "name":"나무 방패",   "slot":"Armor",    "rarity":"N", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Armor/wood_shield.png", "stats": { "hp": 10, "def": 1, "subAtk": { "SOC": 1, "HIST": 1 } } },
+  { "id":"a_iron_mail",   "name":"체인 메일", "slot":"Armor",    "rarity":"R", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Armor/iron_mail.png", "stats": { "hp": 20, "def": 3, "subAtk": { "SOC": 2, "HIST": 1 } } },
 
-  { "id":"acc_red_ring","name":"빨간 반지", "slot":"Accessory","rarity":"N", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Weapon/red_ring.png", "stats": { "hp": 5,  "subAtk": { "KOR": 1, "ENG": 1 } } },
-  { "id":"acc_blue_ring","name":"파란 반지", "slot":"Accessory","rarity":"R", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Weapon/blue_ring.png", "stats": { "hp": 10, "subAtk": { "KOR": 2, "ENG": 1 } } }
+  { "id":"acc_red_ring","name":"빨간 반지", "slot":"Accessory","rarity":"N", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Accessory/red_ring.png", "stats": { "hp": 5,  "subAtk": { "KOR": 1, "ENG": 1 } } },
+  { "id":"acc_blue_ring","name":"파란 반지", "slot":"Accessory","rarity":"R", "thumb": "https://unluckyidiot16.github.io/assets-common/QuizRpg/Items/Accessory/blue_ring.png", "stats": { "hp": 10, "subAtk": { "KOR": 2, "ENG": 1 } } }
 ]
