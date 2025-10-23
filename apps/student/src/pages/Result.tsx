@@ -99,7 +99,23 @@ export default function Result() {
 
   // 호환: 배열(턴 로그)로 저장된 옛 포맷도 요약으로 변환
   const data: Omit<RunSummary, 'runToken' | 'finalHash'> | null = useMemo(() => {
-    if (!parsed) return null;
+    // 0) 최신 포맷이 없으면 qd:lastTurns로 백필
+    if (!parsed) {
+      try {
+        const turnsRaw = localStorage.getItem('qd:lastTurns');
+        if (turnsRaw) {
+          const turnsArr = JSON.parse(turnsRaw) as any[];
+          const total = Math.max(1, turnsArr?.length || 0);
+          const correct = (turnsArr || []).filter(t => t?.correct).length;
+          const cleared = correct >= Math.ceil(total * 0.6);
+          const durationSec = Math.max(0, Number(localStorage.getItem('qd:lastDurationSec') || '0') || 0);
+          const backfilled = { cleared, turns: total, durationSec };
+          try { localStorage.setItem('qd:lastResult', JSON.stringify(backfilled)); } catch {}
+          return backfilled;
+        }
+      } catch {}
+      return null;
+    }
     if (Array.isArray(parsed)) {
       const turns = parsed;
       const total = turns.length || 0;

@@ -471,7 +471,7 @@ export default function Play() {
         console.warn('[finalizeRun] failed, fallback to result', e);
       } finally {
         // 어떤 경우에도 결과 화면으로 이동 (보상 로딩 실패 등 보호)
-        nav(appPath('result'), { replace: true });
+        nav(appPath('/result'), { replace: true });
       }
       return;
     }
@@ -513,6 +513,7 @@ export default function Play() {
     }
 
     // NOTE: 최종 이동은 onPick 쪽 finally에서 수행 (여기서도 중복 이동해도 무해)
+    await Promise.resolve();
     // (여기서는 호출하지 않음)
   }
 
