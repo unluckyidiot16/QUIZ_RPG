@@ -1,8 +1,4 @@
-import { fetchJsonSmart, staticURL } from '../shared/lib/urls';
-
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
-
-export type ItemDef = { id: string; name: string; slot?: 'Weapon'|'Armor'|'Accessory'; rarity?: 'N'|'R'|'SR'|'SSR'; stats?: any };
 
 let _itemDBCache: Record<string, ItemDef> | null = null;
 let _itemDBInflight: Promise<Record<string, ItemDef>> | null = null;

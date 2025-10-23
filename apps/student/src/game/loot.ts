@@ -1,6 +1,8 @@
 // apps/student/src/game/loot.ts
 import { PlayerOps, makeReceiptKey } from '../core/player';
 import type { Subject } from '../game/combat/affinity';
+import * as api from '../api';
+import { enqueue } from '../shared/lib/queue';
 
 export type DropEntry =
   | { kind:'item'; id:string; min?:number; max?:number; weight?:number }
@@ -32,11 +34,36 @@ function weightedPick(entries: DropEntry[], r:number){
   return entries[entries.length-1];
 }
 
+type DropReceipt = {
+  key: string;
+  type: 'drop';
+  runKey: string;
+  payload: { id: string; n: number };
+  };
+const RECEIPT_KEY = 'qd:pendingReceipts';
+function stashReceipt(rec: DropReceipt) {
+  try {
+    const arr: DropReceipt[] = JSON.parse(localStorage.getItem(RECEIPT_KEY) || '[]');
+    arr.push(rec);
+    localStorage.setItem(RECEIPT_KEY, JSON.stringify(arr));
+  } catch {}
+  }
+async function sendReceipt(rec: DropReceipt) {
+    try {
+        const fn = (api as any)?.applyReceipt;
+        if (typeof fn === 'function') await fn(rec);
+        else stashReceipt(rec); // API 미구현/오프라인이면 보관
+      } catch {
+        stashReceipt(rec);       // 실패 시 보관(재시도)
+      }
+  }
+
 export async function applyDrops(table: DropTable, runKey: string){
   const bag = rollDrops(table, runKey);
   for (const [id,n] of Object.entries(bag)){
     const rcp = makeReceiptKey('item', { runKey, id, n });
     // 서버 멱등 스텁 호출 위치(선택): apply_receipt(rcp, user, 'drop', {id,n})
+    void sendReceipt({ key: rcp, type: 'drop', runKey, payload: { id, n } });
     PlayerOps.grantItem(id, n);
   }
   return bag;

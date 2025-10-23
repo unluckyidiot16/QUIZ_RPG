@@ -8,7 +8,7 @@ import { loadPlayer, PlayerOps, loadItemDB, type ItemDef } from '../core/player'
 import { appPath, staticURL } from '../shared/lib/urls';
 
 type Resp = { ok: true; idempotent: boolean } | null;
-
+import * as api from '../api';
 
 export default function Result() {
   const nav = useNavigate();
@@ -45,6 +45,21 @@ export default function Result() {
     }
   }, []);
 
+  useEffect(() => {
+    const K = 'qd:pendingReceipts';
+    const arr: any[] = JSON.parse(localStorage.getItem(K) || '[]');
+    if (!arr.length) return;
+    (async () => {
+      const fn = (api as any)?.applyReceipt;
+      const stay: any[] = [];
+      for (const rec of arr) {
+        try { if (typeof fn === 'function') await fn(rec); else stay.push(rec); }
+        catch { stay.push(rec); }
+      }
+      localStorage.setItem(K, JSON.stringify(stay));
+    })();
+    }, []);
+
   const handleEquip = async (id: string) => {
     // 1) items DB가 아직 로드 안된 상태(레이스) 대비
     let it = items[id];
@@ -66,24 +81,16 @@ export default function Result() {
   // ✅ shared/assets/RewardModal 이 전역 함수를 찾는 경우를 대비한 브리지
   (globalThis as any).handleEquip = handleEquip;
   (globalThis as any).closeRewardModal = () => setRewardOpen(false);
-
-  function staticURL(path: string): string {
-    const base = (import.meta.env.BASE_URL || '/');
-    // base가 '/' 또는 '/subpath/' 모두 안전하게 처리
-    const root = (typeof window !== 'undefined' ? window.location.origin : '');
-    // new URL(상대경로, 절대베이스)로 항상 절대 URL을 생성
-    return new URL(path.replace(/^\//, ''), new URL(base, root)).toString();
-  }
   
   async function restart() {
     await newRunToken();
     resetLocalRunState();
-    nav(appPath('play'), { replace: true });
+    nav(appPath('/play'), { replace: true });
   }
 
   function goHome() {
     resetLocalRunState();
-    nav(appPath(''), { replace: true });
+    nav(appPath('/'), { replace: true });
   }
 
   // 저장된 결과 읽기 — 객체/배열 모두 허용

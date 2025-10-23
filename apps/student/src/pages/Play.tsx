@@ -513,7 +513,7 @@ export default function Play() {
     }
 
     // NOTE: 최종 이동은 onPick 쪽 finally에서 수행 (여기서도 중복 이동해도 무해)
-    nav('/result', {replace: true}); // ← 이동
+    // (여기서는 호출하지 않음)
   }
 
   // ───────────── 임시 상성 ─────────────
