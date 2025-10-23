@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { loadPlayer, levelFromXp, loadItemDB, deriveBattleStats, PlayerOps, type PlayerState, type ItemDef, SUBJECTS, SUBJECT_LABEL } from '../core/player'
+import { loadPlayer, levelFromXp, loadItemDB, deriveBattleStats, PlayerOps, type PlayerState, type ItemDef } from '../core/player'
+import { SUBJECTS, SUBJECT_LABEL } from '../core/char.types'
 import { SUBJECT_TO_COLOR, SKILL_HEX, COLOR_CLS } from '../game/combat/affinity'
+
 
 export default function Status(){
   const [player, setPlayer] = useState<PlayerState|null>(null)
