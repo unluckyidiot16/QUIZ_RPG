@@ -108,3 +108,20 @@ export async function applyReceipt(rec: {
   if (error) throw error;
   return data as { ok: true; idempotent: boolean };
 }
+
+// 프로필 불러오기
+export async function getProfile() {
+  const supa = getClient();
+  const { data, error } = await supa
+    .from('profiles').select('*').single();
+  if (error && error.code !== 'PGRST116') throw error; // not found != error
+  return data || null;
+}
+
+// 프로필 업서트
+export async function upsertProfile(p: { nickname?: string; avatar_id?: string; tint?: number }) {
+  const supa = getClient();
+  const { data, error } = await supa.rpc('upsert_profile', { p });
+  if (error) throw error;
+  return data as { user_id: string; nickname: string; avatar_id: string; tint: number; updated_at: string };
+}
