@@ -11,11 +11,18 @@ export default function CreateConfirm() {
   const nav = useNavigate();
   const {state} = useLocation() as any;
   const earned: Stats | undefined = state?.earned;
-  const {inv} = useMemo(() => makeServices(), []);
-  const [invState, setInvState] = useState<any>(null);
+  // ❗️훅이 들어있을 수 있는 makeServices()는 useMemo 안이 아니라 "컴포넌트 최상위"에서 직접 호출
+  const { inv } = makeServices();  const [invState, setInvState] = useState<any>(null);
+
+
   useEffect(() => {
-    (async () => setInvState(await inv.load()))();
-  }, [inv]);
+    let alive = true;
+    (async () => {
+      try { const s = await inv?.load?.(); if (alive) setInvState(s); } catch {}
+      })();
+    return () => { alive = false; };
+    }, [inv]); 
+  
   const previewEquipped = invState?.equipped || {};
 
   if (!earned) {
