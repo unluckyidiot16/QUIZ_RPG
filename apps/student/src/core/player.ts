@@ -45,6 +45,14 @@ export function migratePlayerSchema(raw: any){
   // 4) 버전 올림
   p.__v = Math.max(cur, PLAYER_SCHEMA_VERSION);
 
+  const baseStatsFromCharacter = p?.character?.baseStats ?? null;
+  const legacyStats = p?.stats ?? null;
+
+  if (!p.subAtk) {
+    const src = baseStatsFromCharacter ?? legacyStats ?? null;
+    p.subAtk = normalizeSubAtk(src || {});
+  }
+  
   return p;
 }
 
@@ -218,8 +226,12 @@ export const PlayerOps = {
       baseStats: { ...zeroStats(), ...baseStats },
       equip: p.character?.equip ?? {},
     };
-    // 레거시 호환: 일부 화면이 p.stats를 볼 수 있으므로 복사
+    // 👇 추가: 전투계산에서 쓰는 top-level subAtk도 같이 맞춰둔다.
+    p.subAtk = normalizeSubAtk(baseStats);
+
+    // 레거시 호환(이미 있으셨던 코드)
     p.stats = { ...p.character.baseStats };
+
     savePlayer(p);
     return p;
   },
