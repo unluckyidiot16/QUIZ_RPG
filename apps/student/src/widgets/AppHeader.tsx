@@ -61,7 +61,21 @@ export default function AppHeader() {
   const [equipped, setEquipped] = useState<Record<string, string>>({});
   const [catalogL, setCatalogL] = useState<Record<string, WearableItem>>({});
   const [ready, setReady] = useState(false);
+  const [nickname, setNickname] = useState<string>('모험가');
 
+  const readNickname = () => {
+    try {
+      const p = JSON.parse(localStorage.getItem('qd:profile') || 'null');
+      if (p && typeof p.nickname === 'string' && p.nickname.trim()) return p.nickname.trim();
+    } catch {}
+    try {
+      const p2 = JSON.parse(localStorage.getItem('qd:player') || 'null');
+      if (p2 && typeof p2.nickname === 'string' && p2.nickname.trim()) return p2.nickname.trim();
+    } catch {}
+    return '모험가';
+  };
+  
+  
   // 공용 로더 사용 → 배포 경로/캐싱 정책 그대로 공유
   useEffect(() => {
     let alive = true;
@@ -71,6 +85,7 @@ export default function AppHeader() {
         if (!alive) return;
         setEquipped(state?.equipped ?? {});
         setCatalogL(toCatalogMap(cat));
+        setNickname(readNickname());
       } catch (e) {
         console.error('[AppHeader] init failed:', e);
       } finally {
@@ -82,11 +97,18 @@ export default function AppHeader() {
       const s = await inv.load();
       setEquipped(s?.equipped ?? {});
     };
+    const onProfileChanged = () => setNickname(readNickname());
     window.addEventListener('inv:changed', onInvChanged as EventListener);
+    window.addEventListener('storage', onProfileChanged);        // 다른 탭에서 변경 시
+    window.addEventListener('profile:changed', onProfileChanged); // 앱 내부 커스텀 이벤트용
+
+
 
     return () => {
       alive = false;
       window.removeEventListener('inv:changed', onInvChanged as EventListener);
+      window.removeEventListener('storage', onProfileChanged);
+      window.removeEventListener('profile:changed', onProfileChanged);
     };
   }, [inv]);
 
@@ -125,7 +147,11 @@ export default function AppHeader() {
         )}
       </div>
       <div className="flex-1">
-        <div className="text-lg font-semibold">오늘의 던전</div>
+        <div className="text-lg font-semibold flex items-center gap-2">
+          오늘의 던전
+          <span className="text-base font-normal opacity-80">·</span>
+          <span className="text-base font-semibold" title="닉네임">@{nickname}</span>
+        </div>
         <div className="text-sm opacity-70">내 아바타</div>
       </div>
     </header>
