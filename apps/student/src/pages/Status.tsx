@@ -15,10 +15,13 @@ export default function Status(){
     loadItemDB('/packs/items.v1.json').then((db) => { setItems(db || {}); setItemsReady(true); });
   }, []);
 
-  if (!player || !itemsReady) return <div className="p-6">로딩…</div>
+  // ✅ 훅은 항상 호출되도록 하고, 렌더링만 분기한다.
+  const ready = !!player && itemsReady;
 
-  // ── 안전 가드: player.base가 없거나 수치가 아니면 기본값으로 대체 ──
-  const hasBase = !!(player as any)?.base && typeof (player as any).base.hp === 'number' && typeof (player as any).base.def === 'number';
+  const hasBase = useMemo(() => {
+    const b = (player as any)?.base;
+    return !!b && typeof b.hp === 'number' && typeof b.def === 'number';
+  }, [player]);
 
   const fallbackStat = useMemo(() => ({
     hp: (player as any)?.base?.hp ?? 50,
@@ -28,19 +31,21 @@ export default function Status(){
 
   const stat = useMemo(() => {
     try {
-      if (!hasBase) throw new Error('player.base missing');
-      return deriveBattleStats(items, player);
+      if (!ready || !hasBase) return fallbackStat;
+      return deriveBattleStats(items, player!);
     } catch (e) {
       console.warn('[Status] deriveBattleStats failed, fallback used:', e);
       return fallbackStat;
     }
-  }, [items, player, hasBase, fallbackStat]);
+  }, [ready, hasBase, items, player, fallbackStat]);
 
   return (
     <div className="p-6 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold">상태</h1>
 
-      {!hasBase && (
+      {!ready && <div className="mt-3">로딩…</div>}
+
+      {ready && !hasBase && (
         <div className="mt-3 p-3 rounded bg-amber-900/40 ring-1 ring-amber-700 text-amber-100">
           <b>플레이어 데이터가 구형 형식입니다.</b><br/>
           기본값으로 표시 중이며, 전투/결과 저장 과정에서 최신 스키마로 자동 보정됩니다.
@@ -56,34 +61,38 @@ export default function Status(){
         </div>
       )}
 
-      {/* 레벨/XP */}
-      <LevelBlock player={player} setPlayer={setPlayer} busy={busy} setBusy={setBusy} />
+      {ready && (
+        <>
+          {/* 레벨/XP */}
+          <LevelBlock player={player!} setPlayer={setPlayer} busy={busy} setBusy={setBusy} />
 
-      {/* 전투 스탯 요약 */}
-      <div className="mt-4 p-3 rounded bg-slate-800/60">
-        <div className="font-semibold mb-2">전투 스탯 (기본 + 장비)</div>
-        <ul className="grid grid-cols-2 gap-2 text-center">
-          <li className="p-2 rounded bg-slate-900">HP<br/><b>{stat.hp}</b></li>
-          <li className="p-2 rounded bg-slate-900">DEF<br/><b>{stat.def}</b></li>
-        </ul>
-      </div>
+          {/* 전투 스탯 요약 */}
+          <div className="mt-4 p-3 rounded bg-slate-800/60">
+            <div className="font-semibold mb-2">전투 스탯 (기본 + 장비)</div>
+            <ul className="grid grid-cols-2 gap-2 text-center">
+              <li className="p-2 rounded bg-slate-900">HP<br/><b>{stat.hp}</b></li>
+              <li className="p-2 rounded bg-slate-900">DEF<br/><b>{stat.def}</b></li>
+            </ul>
+          </div>
 
-      {/* 과목별 공격력 + 레이더 */}
-      <SubjectBlock stat={stat} />
+          {/* 과목별 공격력 + 레이더 */}
+          <SubjectBlock stat={stat} />
 
-      {/* 장비 */}
-      <div className="mt-4 p-3 rounded bg-slate-800/60">
-        <div className="font-semibold mb-2">장비</div>
-        <EquipRow slot="Weapon" items={items} player={player} onChange={()=>setPlayer(loadPlayer())} />
-        <EquipRow slot="Armor" items={items} player={player} onChange={()=>setPlayer(loadPlayer())} />
-        <EquipRow slot="Accessory" items={items} player={player} onChange={()=>setPlayer(loadPlayer())} />
-        <p className="text-xs opacity-70 mt-2">※ 가챠 코스튬은 외형 전용이며 스탯이 없습니다. 장비는 던전 보상으로만 획득합니다.</p>
-      </div>
+          {/* 장비 */}
+          <div className="mt-4 p-3 rounded bg-slate-800/60">
+            <div className="font-semibold mb-2">장비</div>
+            <EquipRow slot="Weapon" items={items} player={player!} onChange={()=>setPlayer(loadPlayer())} />
+            <EquipRow slot="Armor" items={items} player={player!} onChange={()=>setPlayer(loadPlayer())} />
+            <EquipRow slot="Accessory" items={items} player={player!} onChange={()=>setPlayer(loadPlayer())} />
+            <p className="text-xs opacity-70 mt-2">※ 가챠 코스튬은 외형 전용이며 스탯이 없습니다. 장비는 던전 보상으로만 획득합니다.</p>
+          </div>
 
-      <div className="mt-6 flex gap-2">
-        <Link className="px-3 py-2 rounded bg-slate-700" to="/inventory">인벤토리</Link>
-        <Link className="px-3 py-2 rounded bg-slate-700" to="/">메인</Link>
-      </div>
+          <div className="mt-6 flex gap-2">
+            <Link className="px-3 py-2 rounded bg-slate-700" to="/inventory">인벤토리</Link>
+            <Link className="px-3 py-2 rounded bg-slate-700" to="/">메인</Link>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -150,76 +159,4 @@ function EquipRow({ slot, items, player, onChange }:{
     .filter((it): it is ItemDef => !!it && it.slot === slot)
 
   return (
-    <div className="mt-2">
-      <div className="text-sm opacity-80 mb-1">{slot}</div>
-      <div className="flex items-center gap-2">
-        <div className="flex-1 p-2 rounded bg-slate-900">
-          {equipped ? (
-            <div className="flex items-center justify-between">
-              <div><b>{equipped.name}</b> <span className="text-xs opacity-70">[{equipped.rarity}]</span></div>
-              <div className="text-xs opacity-80">{fmtStats(equipped)}</div>
-            </div>
-          ) : (<span className="opacity-50">미장착</span>)}
-        </div>
-        <select className="px-2 py-1 rounded bg-slate-900" value={equippedId ?? ''} onChange={e=>{ const v = e.target.value || undefined; PlayerOps.equip(slot, v); onChange() }}>
-          <option value="">— 선택 —</option>
-          {options.map(it=> (
-            <option key={it.id} value={it.id}>{it.name}</option>
-          ))}
-        </select>
-        {equippedId && <button className="px-2 py-1 rounded bg-slate-700" onClick={()=>{ PlayerOps.equip(slot, undefined); onChange() }}>해제</button>}
-      </div>
-    </div>
-  )
-}
-
-function fmtStats(it: ItemDef){
-  const s = it.stats ?? {}
-  const arr: string[] = []
-  if (s.def) arr.push(`DEF +${s.def}`)
-  if (s.hp) arr.push(`HP +${s.hp}`)
-  if (s.subAtk){
-    const entries = Object.entries(s.subAtk)
-    if (entries.length){
-      const LABEL: Record<string, string> = SUBJECT_LABEL as any;
-      arr.push(entries.map(([k,v])=> `${LABEL[k] ?? k} +${v}`).join(' · '))
-    }
-  }
-  return arr.join(' · ')
-}
-
-function Radar6({ values, labels, colors }:{ values:number[]; labels:string[]; colors?: string[] }){
-  const max = Math.max(1, ...values);
-  const norm = values.map(v=> v/max);
-  const angles = [...Array(6)].map((_,i)=> (-90 + i*60) * Math.PI/180);
-  const center = 60, R = 50;
-  const pts = norm.map((t,i)=> {
-    const r = R * t;
-    const x = center + r * Math.cos(angles[i]);
-    const y = center + r * Math.sin(angles[i]);
-    return `${x},${y}`;
-  }).join(' ');
-  const ring = (p:number)=> [...Array(6)].map((_,i)=>{
-    const r = R * p;
-    const x = center + r * Math.cos(angles[i]);
-    const y = center + r * Math.sin(angles[i]);
-    return `${x},${y}`;
-  }).join(' ');
-  return (
-    <svg width={140} height={140} viewBox="0 0 120 120" className="mx-auto">
-      {[0.33,0.66,1].map((p,idx)=> (
-        <polygon key={idx} points={ring(p)} fill="none" stroke="currentColor" opacity="0.2" />
-      ))}
-      {angles.map((a,i)=> {
-        const stroke = colors?.[i] ?? 'currentColor';
-        return <line key={i} x1={center} y1={center} x2={center+R*Math.cos(a)} y2={center+R*Math.sin(a)} stroke={stroke} opacity="0.6" />
-      })}
-      <polygon points={pts} fill="currentColor" opacity="0.3" />
-      {angles.map((a,i)=> (
-        <text key={i} x={center+(R+8)*Math.cos(a)} y={center+(R+8)*Math.sin(a)}
-              textAnchor="middle" dominantBaseline="middle" fontSize="8"
-              fill={colors?.[i] ?? 'currentColor'}>{labels[i]}</text>
-      ))}
-    </svg>
-  )
-}
+    <div
