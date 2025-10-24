@@ -90,3 +90,21 @@ export async function guestLogin(token: string): Promise<string> {
   localStorage.setItem('qd:userId', userId);
   return userId;
 }
+
+// [ADD] 멱등 영수증 적용 API
+export async function applyReceipt(rec: {
+  key: string;                 // makeReceiptKey(...) 로 생성된 고유 키
+  type: string;                // 'drop' 등 사유
+  runKey: string;              // 현재 런 키(참고용)
+  payload: any;                // { id, n } 등 상세
+}): Promise<{ ok: true; idempotent: boolean }> {
+  const user = await getUserId();
+  const { data, error } = await getClient().rpc('apply_receipt', {
+    p_id: rec.key,
+    p_user: user,
+    p_reason: rec.type,
+    p_payload: rec.payload,
+  } as any);
+  if (error) throw error;
+  return data as { ok: true; idempotent: boolean };
+}
