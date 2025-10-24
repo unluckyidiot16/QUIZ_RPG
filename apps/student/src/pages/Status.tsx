@@ -159,4 +159,76 @@ function EquipRow({ slot, items, player, onChange }:{
     .filter((it): it is ItemDef => !!it && it.slot === slot)
 
   return (
-    <div
+    <div className="mt-2">
+      <div className="text-sm opacity-80 mb-1">{slot}</div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 p-2 rounded bg-slate-900">
+          {equipped ? (
+            <div className="flex items-center justify-between">
+              <div><b>{equipped.name}</b> <span className="text-xs opacity-70">[{equipped.rarity}]</span></div>
+              <div className="text-xs opacity-80">{fmtStats(equipped)}</div>
+            </div>
+          ) : (<span className="opacity-50">미장착</span>)}
+        </div>
+        <select className="px-2 py-1 rounded bg-slate-900" value={equippedId ?? ''} onChange={e=>{ const v = e.target.value || undefined; PlayerOps.equip(slot, v); onChange() }}>
+          <option value="">— 선택 —</option>
+          {options.map(it=> (
+            <option key={it.id} value={it.id}>{it.name}</option>
+          ))}
+        </select>
+        {equippedId && <button className="px-2 py-1 rounded bg-slate-700" onClick={()=>{ PlayerOps.equip(slot, undefined); onChange() }}>해제</button>}
+      </div>
+    </div>
+  )
+}
+
+function fmtStats(it: ItemDef){
+  const s = it.stats ?? {}
+  const arr: string[] = []
+  if (s.def) arr.push(`DEF +${s.def}`)
+  if (s.hp) arr.push(`HP +${s.hp}`)
+  if (s.subAtk){
+    const entries = Object.entries(s.subAtk)
+    if (entries.length){
+      const LABEL: Record<string, string> = SUBJECT_LABEL as any;
+      arr.push(entries.map(([k,v])=> `${LABEL[k] ?? k} +${v}`).join(' · '))
+    }
+  }
+  return arr.join(' · ')
+}
+
+function Radar6({ values, labels, colors }:{ values:number[]; labels:string[]; colors?: string[] }){
+  const max = Math.max(1, ...values);
+  const norm = values.map(v=> v/max);
+  const angles = [...Array(6)].map((_,i)=> (-90 + i*60) * Math.PI/180);
+  const center = 60, R = 50;
+  const pts = norm.map((t,i)=> {
+    const r = R * t;
+    const x = center + r * Math.cos(angles[i]);
+    const y = center + r * Math.sin(angles[i]);
+    return `${x},${y}`;
+  }).join(' ');
+  const ring = (p:number)=> [...Array(6)].map((_,i)=>{
+    const r = R * p;
+    const x = center + r * Math.cos(angles[i]);
+    const y = center + r * Math.sin(angles[i]);
+    return `${x},${y}`;
+  }).join(' ');
+  return (
+    <svg width={140} height={140} viewBox="0 0 120 120" className="mx-auto">
+      {[0.33,0.66,1].map((p,idx)=> (
+        <polygon key={idx} points={ring(p)} fill="none" stroke="currentColor" opacity="0.2" />
+      ))}
+      {angles.map((a,i)=> {
+        const stroke = colors?.[i] ?? 'currentColor';
+        return <line key={i} x1={center} y1={center} x2={center+R*Math.cos(a)} y2={center+R*Math.sin(a)} stroke={stroke} opacity="0.6" />
+      })}
+      <polygon points={pts} fill="currentColor" opacity="0.3" />
+      {angles.map((a,i)=> (
+        <text key={i} x={center+(R+8)*Math.cos(a)} y={center+(R+8)*Math.sin(a)}
+              textAnchor="middle" dominantBaseline="middle" fontSize="8"
+              fill={colors?.[i] ?? 'currentColor'}>{labels[i]}</text>
+      ))}
+    </svg>
+  )
+}
