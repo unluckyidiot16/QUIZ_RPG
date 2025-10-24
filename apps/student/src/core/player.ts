@@ -1,4 +1,5 @@
-import { SUBJECTS, type Stats } from './char.types';
+import type { Stats } from './char.types';
+import { SUBJECTS } from './char.types';
 
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
@@ -14,64 +15,60 @@ const DEFAULT_BASE = { hp: 50, def: 0 };
 const DEFAULT_EQUIP: Record<EquipSlots, string | undefined> = {
   Weapon: undefined, Armor: undefined, Accessory: undefined,
 };
-const DEFAULT_SUBATK: Record<string, number> =
-  SUBJECTS.reduce((m, s) => (m[s] = 0, m), {} as Record<string, number>);
 
-
-const coerceNum = (v: any, d = 0) => {
-  const n = Number(v); return Number.isFinite(n) ? n : d;
-};
-
-
-const coerceSubAtk = (raw: any) => {
-  const src = (raw && typeof raw === 'object') ? raw : {};
-  const out: Record<string, number> = { ...DEFAULT_SUBATK };
-  for (const s of SUBJECTS) out[s] = coerceNum((src as any)[s], 0);
-  return out;
-};
+function coerceNum(v: any, d = 0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
 
 export function migratePlayerSchema(raw: any){
   const p = raw && typeof raw === 'object' ? { ...raw } : {};
+
+  // 버전 플래그
   const cur = Number(p.__v) || 0;
 
-  const baseIn = (p.base && typeof p.base === 'object') ? p.base : {};
+  // 1) base 보정 (없거나 타입이 잘못된 경우)
+  const base = p.base && typeof p.base === 'object' ? p.base : {};
   p.base = {
-    hp:  coerceNum((baseIn as any).hp,  DEFAULT_BASE.hp),
-    def: coerceNum((baseIn as any).def, DEFAULT_BASE.def),
-    subAtk: coerceSubAtk((baseIn as any).subAtk),
+    hp: coerceNum(base.hp, DEFAULT_BASE.hp),
+    def: coerceNum(base.def, DEFAULT_BASE.def),
   };
 
+  // 2) 장비/가방 보정
   p.equipment = p.equipment && typeof p.equipment === 'object'
     ? { ...DEFAULT_EQUIP, ...p.equipment }
     : { ...DEFAULT_EQUIP };
 
   p.bag = p.bag && typeof p.bag === 'object' ? p.bag : {};
 
+  // 3) 진행도/기타 기본값
   p.totalXp = coerceNum(p.totalXp, 0);
   p.gold    = coerceNum(p.gold,    0);
 
+  // 4) 버전 올림
   p.__v = Math.max(cur, PLAYER_SCHEMA_VERSION);
+
   return p;
 }
-
 
 export function loadPlayer(): PlayerState {
   try {
     const raw = localStorage.getItem('qd:player');
     const parsed = raw ? JSON.parse(raw) : null;
+
+    // ▼ 마이그레이션 적용
     const migrated = migratePlayerSchema(parsed);
+
+    // 변경 사항이 있으면 저장
     if (JSON.stringify(parsed) !== JSON.stringify(migrated)) {
       localStorage.setItem('qd:player', JSON.stringify(migrated));
     }
+
     return migrated as PlayerState;
   } catch {
+    // 완전 파손 시 기본값 생성
     const fresh = migratePlayerSchema({});
     localStorage.setItem('qd:player', JSON.stringify(fresh));
     return fresh as PlayerState;
   }
 }
-
-
 
 export function savePlayer(p: any) {
   localStorage.setItem(LS_KEY, JSON.stringify(p));
@@ -137,20 +134,30 @@ export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemD
   return _itemDBInflight;
 }
 
-type Subject = (typeof SUBJECTS)[number];
-export type SubAtkMap = Record<Subject, number>;
+// ── 과목(6) 정의 ──
+export type Subject = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'HIST';
 
 export type SubjectPower = Record<Subject, number>;
 
 export interface StatsBase { hp:number; def:number }
 export interface PlayerState {
   totalXp: number; // 누적 XP
-  base: StatsBase & { subAtk: SubAtkMap };
+  base: StatsBase; // 캐릭터 기본 스탯(레벨 보정 전)
   subAtk: SubjectPower; // 과목별 기본 공격력(캐릭터 고유치/레벨 보정치)
   equipment: Partial<Record<EquipmentSlot, string>>; // 아이템 ID 참조
   bag: Record<string, number>; // 장비/소모품 보유 수량
   version: number;
 }
+
+const K = 'qrpg_player_v1';
+const DEF: PlayerState = {
+  totalXp: 0,
+  base: { hp: 100, def: 0 },
+  subAtk: { KOR:1, ENG:1, MATH:1, SCI:1, SOC:1, HIST:1 },
+  equipment: {},
+  bag: {},
+  version: 2,
+};
 
 export function normalizeSubAtk(x?: Partial<Record<Subject, number>> | Record<string, number> | null): SubjectPower {
   const out = {} as SubjectPower;
@@ -201,15 +208,20 @@ export interface ItemDef {
 /** 장비/지급 도우미 */
 // player.ts (동일 파일 내, 위 헬퍼들 아래)
 export const PlayerOps = {
-
-  createCharacter(args: { baseStats?: Stats, nickname?: string } = {}) {
-    const p = migratePlayerSchema({});
-    if (args.baseStats) {
-      p.base.subAtk = coerceSubAtk(args.baseStats); // 🎯 확정 스탯 반영
-    }
-    // 닉네임/기타 디폴트는 필요 시 세팅
-    localStorage.setItem('qd:player', JSON.stringify(p));
-    return p as PlayerState;
+  /** 캐릭터 생성: baseStats 저장 + 레거시(p.stats) 동기화 */
+  createCharacter({ baseStats }: { baseStats: Stats }) {
+    const p = migratePlayerShape(loadPlayer());
+    p.character = {
+      id: p.character?.id ?? 'char-1',
+      level: 1,
+      exp: 0,
+      baseStats: { ...zeroStats(), ...baseStats },
+      equip: p.character?.equip ?? {},
+    };
+    // 레거시 호환: 일부 화면이 p.stats를 볼 수 있으므로 복사
+    p.stats = { ...p.character.baseStats };
+    savePlayer(p);
+    return p;
   },
 
   /** 경험치 지급 */
@@ -238,15 +250,6 @@ export const PlayerOps = {
     savePlayer(s);
     return s;
   },
-
-
-  applyBaseStats(stats: Stats) {
-    const p = loadPlayer();
-    p.base.subAtk = coerceSubAtk(stats);
-    localStorage.setItem('qd:player', JSON.stringify(p));
-    return p as PlayerState;
-  },
-
 };
 
 
