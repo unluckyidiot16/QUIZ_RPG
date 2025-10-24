@@ -4,7 +4,8 @@ export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
 // 로컬스토리지 I/O
 const LS_KEY = 'qd:player';
-// === Player schema migration (drop-in) =======================================
+
+const num = (v: unknown, d = 0) => (Number.isFinite(+((v as any))) ? +((v as any)) : d);
 
 export const PLAYER_SCHEMA_VERSION = 2;
 
@@ -25,45 +26,45 @@ const coerceNum = (v: any, d = 0) => {
   return Number.isFinite(n) ? n : d;
 };
 
-// ✅ 반환 타입을 SubAtkMap으로, 모든 키를 정확히 채워서 반환
-function coerceSubAtk(raw: any): SubAtkMap {
-  const src = (raw && typeof raw === 'object') ? raw : {};
-  const out: Record<Subject, number> = {} as any;
-  for (const s of SUBJECTS as readonly Subject[]) {
-    out[s] = coerceNum((src as any)[s], 0);
+// ✅ 2) 스탯 정규화: 반환 타입도 char.types.ts 의 Stats
+function coerceSubAtk(raw: unknown): Stats {
+  const src = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
+  const out: Record<string, number> = {};
+  for (const s of SUBJECTS as readonly string[]) {
+    out[s] = num(src[s], 0);
   }
-  return out as SubAtkMap;
+  return out as Stats;
 }
 
-export function migratePlayerSchema(raw: any){
+// ✅ 3) 로더/마이그레이션에서 subAtk 을 Stats 로 “보존 + 보정”
+//    (base.subAtk 없거나 과거 baseStats 를 쓰던 경우도 흡수)
+export function migratePlayerSchema(raw: any) {
   const p = raw && typeof raw === 'object' ? { ...raw } : {};
-  const cur = Number(p.__v) || 0;
 
-  const baseIn = (p.base && typeof p.base === 'object') ? p.base : {};
+  const baseIn = p?.base && typeof p.base === 'object' ? p.base : {};
+  const subIn  = (baseIn as any).subAtk ?? p?.baseStats; // 과거 호환(baseStats)
+
   p.base = {
-    hp:  coerceNum((baseIn as any).hp,  DEFAULT_BASE.hp),
-    def: coerceNum((baseIn as any).def, DEFAULT_BASE.def),
-    subAtk: coerceSubAtk((baseIn as any).subAtk),
+    hp:  num((baseIn as any).hp, 50),
+    def: num((baseIn as any).def, 0),
+    subAtk: coerceSubAtk(subIn),              // ← Stats 로 확정
   };
 
-  p.equipment = p.equipment && typeof p.equipment === 'object'
-    ? { ...DEFAULT_EQUIP, ...p.equipment }
-    : { ...DEFAULT_EQUIP };
+  // 가드(getBaseStats) 호환을 위해 미러 필드도 맞춰둠
+  p.baseStats = p.base.subAtk;
 
-  p.bag = p.bag && typeof p.bag === 'object' ? p.bag : {};
+  p.totalXp = num(p.totalXp, 0);
+  p.gold    = num(p.gold, 0);
+  p.hasCharacter = Boolean(p.hasCharacter) || true;
+  p.createdAt ??= new Date().toISOString();
+  p.__v = Math.max(Number(p.__v) || 0, 2);
 
-  p.totalXp = coerceNum(p.totalXp, 0);
-  p.gold    = coerceNum(p.gold,    0);
-
-  p.__v = Math.max(cur, PLAYER_SCHEMA_VERSION);
   return p;
 }
 
-
 export function loadPlayer(): PlayerState {
   try {
-    const raw = localStorage.getItem('qd:player');
-    const parsed = raw ? JSON.parse(raw) : null;
+    const parsed = JSON.parse(localStorage.getItem('qd:player') || 'null');
     const migrated = migratePlayerSchema(parsed);
     if (JSON.stringify(parsed) !== JSON.stringify(migrated)) {
       localStorage.setItem('qd:player', JSON.stringify(migrated));
@@ -90,9 +91,12 @@ let _itemDBCache: Record<string, ItemDef> | null = null;
 let _itemDBInflight: Promise<Record<string, ItemDef>> | null = null;
 
 /** 어디서든 '플레이어의 베이스 스탯'을 안전하게 얻는 단일 진입점 */
+// ✅ 5) 가드에서 쓰는 헬퍼: null이면 “미생성”
 export function getBaseStats(p: any): Stats | null {
-  const bs = p?.character?.baseStats ?? p?.stats;
-  return bs ? ({ ...zeroStats(), ...bs }) : null;
+  if (!p) return null;
+  const src = p?.base?.subAtk ?? p?.baseStats;
+  if (!src) return null;
+  return coerceSubAtk(src); // 객체(Stats)면 truthy → requireCharacter 통과
 }
 function appBaseURL(): URL {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
@@ -207,16 +211,26 @@ export interface ItemDef {
 // player.ts (동일 파일 내, 위 헬퍼들 아래)
 export const PlayerOps = {
 
-  createCharacter(args: { baseStats?: Stats, nickname?: string } = {}) {
+  createCharacter(args: { baseStats?: Stats; nickname?: string } = {}) {
     const p = migratePlayerSchema({});
     if (args.baseStats) {
-      p.base.subAtk = coerceSubAtk(args.baseStats); // 🎯 확정 스탯 반영
+      const sub = coerceSubAtk(args.baseStats);
+      (p.base as any).subAtk = sub;  // base.subAtk: Stats
+      p.baseStats = sub;             // 가드 호환
     }
-    // 닉네임/기타 디폴트는 필요 시 세팅
+    p.hasCharacter = true;
+    p.createdAt = new Date().toISOString();
     localStorage.setItem('qd:player', JSON.stringify(p));
     return p as PlayerState;
   },
 
+  applyBaseStats(stats: Stats) {
+    const p = loadPlayer();
+    p.base.subAtk = coerceSubAtk(stats);   // ✅ 단일 소스
+    localStorage.setItem('qd:player', JSON.stringify(p));
+    return p as PlayerState;
+  },
+  
   /** 경험치 지급 */
   grantXp(delta: number) {
     const s = migratePlayerShape(loadPlayer());
@@ -243,16 +257,8 @@ export const PlayerOps = {
     savePlayer(s);
     return s;
   },
+} as const;
 
-
-  applyBaseStats(stats: Stats) {
-    const p = loadPlayer();
-    p.base.subAtk = coerceSubAtk(stats);
-    localStorage.setItem('qd:player', JSON.stringify(p));
-    return p as PlayerState;
-  },
-
-};
 
 
 /** 최종 전투 스탯 계산: (기본 + 장비합산) */
