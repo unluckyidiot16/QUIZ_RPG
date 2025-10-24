@@ -5,10 +5,71 @@ export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
 // 로컬스토리지 I/O
 const LS_KEY = 'qd:player';
-export function loadPlayer(): any {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); }
-  catch { return {}; }
+// === Player schema migration (drop-in) =======================================
+
+export const PLAYER_SCHEMA_VERSION = 2;
+
+type EquipSlots = 'Weapon'|'Armor'|'Accessory';
+
+const DEFAULT_BASE = { hp: 50, def: 0 };
+const DEFAULT_EQUIP: Record<EquipSlots, string | undefined> = {
+  Weapon: undefined, Armor: undefined, Accessory: undefined,
+};
+
+function coerceNum(v: any, d = 0){ const n = Number(v); return Number.isFinite(n) ? n : d; }
+
+export function migratePlayerSchema(raw: any){
+  const p = raw && typeof raw === 'object' ? { ...raw } : {};
+
+  // 버전 플래그
+  const cur = Number(p.__v) || 0;
+
+  // 1) base 보정 (없거나 타입이 잘못된 경우)
+  const base = p.base && typeof p.base === 'object' ? p.base : {};
+  p.base = {
+    hp: coerceNum(base.hp, DEFAULT_BASE.hp),
+    def: coerceNum(base.def, DEFAULT_BASE.def),
+  };
+
+  // 2) 장비/가방 보정
+  p.equipment = p.equipment && typeof p.equipment === 'object'
+    ? { ...DEFAULT_EQUIP, ...p.equipment }
+    : { ...DEFAULT_EQUIP };
+
+  p.bag = p.bag && typeof p.bag === 'object' ? p.bag : {};
+
+  // 3) 진행도/기타 기본값
+  p.totalXp = coerceNum(p.totalXp, 0);
+  p.gold    = coerceNum(p.gold,    0);
+
+  // 4) 버전 올림
+  p.__v = Math.max(cur, PLAYER_SCHEMA_VERSION);
+
+  return p;
 }
+
+export function loadPlayer(): PlayerState {
+  try {
+    const raw = localStorage.getItem('qd:player');
+    const parsed = raw ? JSON.parse(raw) : null;
+
+    // ▼ 마이그레이션 적용
+    const migrated = migratePlayerSchema(parsed);
+
+    // 변경 사항이 있으면 저장
+    if (JSON.stringify(parsed) !== JSON.stringify(migrated)) {
+      localStorage.setItem('qd:player', JSON.stringify(migrated));
+    }
+
+    return migrated as PlayerState;
+  } catch {
+    // 완전 파손 시 기본값 생성
+    const fresh = migratePlayerSchema({});
+    localStorage.setItem('qd:player', JSON.stringify(fresh));
+    return fresh as PlayerState;
+  }
+}
+
 export function savePlayer(p: any) {
   localStorage.setItem(LS_KEY, JSON.stringify(p));
 }
