@@ -20,6 +20,8 @@ import TokenGatePage from './pages/TokenGatePage';
 import NotFound from './pages/NotFound';
 import CreateQuiz from './pages/CreateQuiz';
 import CreateConfirm from './pages/CreateConfirm';
+import Profile from './pages/Profile';
+
 
 
 import { bootstrapApp } from './core/bootstrap';
@@ -30,21 +32,46 @@ const requireCharacter = () => {
   return null;
 };
 
+// 닉네임 로더
+  const getNickname = () => {
+    try {
+        const p = JSON.parse(localStorage.getItem('qd:profile') || 'null');
+        const n = p?.nickname?.trim?.();
+        return typeof n === 'string' ? n : '';
+      } catch { return ''; }
+  };
+  const requireNickname = () => {
+    const n = getNickname();
+    if (!n) throw redirect('/profile');
+    return null;
+  };
+
+  // 최종 가드(닉네임 → 캐릭터 순)
+    const requireSetup = () => {
+    const n = getNickname();
+    if (!n) throw redirect('/profile');
+    const p = loadPlayer();
+    if (!getBaseStats(p)) throw redirect('/create/quiz');
+    return null;
+  };
+
 const router = createBrowserRouter([
   {
     element: <AppShell />,                 // ✅ 헤더는 여기서만
     children: [
-      { index: true, loader: requireCharacter, element: <Main/> },  // ← 가드 추가
-      { path: '/status', loader: requireCharacter, element: <Status/> },
+      { index: true, loader: requireSetup, element: <Main/> },
+      { path: '/status', loader: requireSetup, element: <Status/> },
       { path: '/lobby', element: <Lobby/> },
-      { path: '/play', loader: requireCharacter, element: <Play/> },
-      { path: '/result', loader: requireCharacter, element: <Result/> },
+      { path: '/play', loader: requireSetup, element: <Play/> },
+      { path: '/result', loader: requireSetup, element: <Result/> },
       { path: '/gacha', element: <Gacha/> },
-      { path: '/inventory', loader: requireCharacter, element: <Inventory/> },
-      { path: '/wardrobe', loader: requireCharacter, element: <Wardrobe/> },
+      { path: '/inventory', loader: requireSetup, element: <Inventory/> },
+      { path: '/wardrobe', loader: requireSetup, element: <Wardrobe/> },
       { path: '/codex', element: <Codex/> },
-      { path: '/create/quiz', element: <CreateQuiz/> },
-      { path: '/create/confirm', element: <CreateConfirm/> },
+      { path: '/profile', element: <Profile/> },
+      { path: '/create/quiz', loader: requireNickname, element: <CreateQuiz/> },
+      { path: '/create/confirm', loader: requireNickname, element: <CreateConfirm/> },
+
     ],
   },
   // ✅ 차단/토큰 화면은 헤더 없이
