@@ -265,20 +265,47 @@ export interface ItemDef {
 // player.ts (동일 파일 내, 위 헬퍼들 아래)
 export const PlayerOps = {
   /** 캐릭터 생성: baseStats 저장 + 레거시(p.stats) 동기화 */
-  createCharacter({ baseStats }: { baseStats: Stats }) {
-    const p = migratePlayerShape(loadPlayer());
+  // ✅ 드롭-인 교체: PlayerOps.createCharacter
+  createCharacter(args?: { baseStats?: Stats; nickname?: string }) {
+    const a = args || {};
+    const p = migratePlayerShape(loadPlayer()); // 기존 헬퍼 그대로 사용
+
+    // ---------- 새 모델 초기화 ----------
+    // base 컨테이너 보장
+    p.base = p.base ?? {};
+    // 기본 HP/DEF 보장(스케일 상수는 player.ts 상단에서 관리)
+    p.base.hp  = Number.isFinite(p.base.hp)  ? p.base.hp  : 50;
+    p.base.def = Number.isFinite(p.base.def) ? p.base.def : 0;
+
+    // 과목별 레벨/XP 초기화: baseStats가 있으면 "레벨로 환산", 없으면 0으로 시작
+    p.base.subLevels = p.base.subLevels ?? {};
+    for (const s of SUBJECTS) {
+      const v  = Number((a.baseStats as any)?.[s] ?? 0);
+      const lv = Math.max(0, Math.floor(v / ATK_PER_LEVEL)); // 예: ATK_PER_LEVEL=2
+      p.base.subLevels[s] = { lv, xp: 0 };
+    }
+
+    // 파생 공격력(Stats) 동기화: ✅ 단일 소스는 base.subLevels → base.subAtk
+    p.base.subAtk = deriveSubAtkFromLevels(p.base.subLevels);
+
+    // ---------- 레거시 호환(있던 코드 유지) ----------
+    // character 블록은 남겨두되, level은 합계 레벨로 동기화
     p.character = {
       id: p.character?.id ?? 'char-1',
-      level: 1,
+      level: totalLevel(p.base.subLevels),  // Σ lv[s]
       exp: 0,
-      baseStats: { ...zeroStats(), ...baseStats },
+      baseStats: { ...zeroStats(), ...(a.baseStats || {}) }, // 읽는 코드가 있으면 위해 미러
       equip: p.character?.equip ?? {},
     };
-    // 👇 추가: 전투계산에서 쓰는 top-level subAtk도 같이 맞춰둔다.
-    p.subAtk = normalizeSubAtk(baseStats);
 
-    // 레거시 호환(이미 있으셨던 코드)
-    p.stats = { ...p.character.baseStats };
+    // 기존 상위 필드들도 미러(가능하면 점진 제거 권장)
+    p.subAtk = { ...p.base.subAtk };
+    p.stats  = { ...p.character.baseStats };
+
+    // 닉네임은 별도 프로필에서 관리하지만, 인자가 오면 저장해도 무방
+    if (a.nickname && typeof a.nickname === 'string') {
+      p.nickname = a.nickname;
+    }
 
     savePlayer(p);
     return p;

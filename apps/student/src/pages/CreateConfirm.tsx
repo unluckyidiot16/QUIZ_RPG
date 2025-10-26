@@ -2,10 +2,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { appPath } from '../shared/lib/urls';
-import type { Stats, Subject } from '../core/char.types';
+import type { Stats } from '../core/char.types';
 import { SUBJECTS, subjectLabel } from '../core/char.types';
-import { PlayerOps } from '../core/player';
+import { PlayerOps, loadPlayer, grantSubjectXp } from '../core/player'; // 👈 추가
 import { makeServices } from '../core/service.locator';
+
+const QUIZ_XP_PER_POINT = 10; // ✅ 정답 1개당 XP (원하면 튜닝)
 
 export default function CreateConfirm() {
   const nav = useNavigate();
@@ -13,10 +15,8 @@ export default function CreateConfirm() {
   const earned: Stats | undefined = state?.earned;
   const {inv} = useMemo(() => makeServices(), []);
   const [invState, setInvState] = useState<any>(null);
-  
-  useEffect(() => {
-    (async () => setInvState(await inv.load()))();
-  }, [inv]);
+
+  useEffect(() => { (async () => setInvState(await inv.load()))(); }, [inv]);
   const previewEquipped = invState?.equipped || {};
 
   if (!earned) {
@@ -24,21 +24,36 @@ export default function CreateConfirm() {
       <div className="max-w-xl mx-auto p-6">
         <h1 className="text-2xl font-bold">캐릭터 생성</h1>
         <p className="opacity-80 mt-2">먼저 퀴즈를 완료하세요.</p>
-        <button className="mt-4 px-4 py-2 rounded bg-indigo-600" onClick={() => nav(appPath('/create/quiz'))}>퀴즈 시작
+        <button className="mt-4 px-4 py-2 rounded bg-indigo-600" onClick={() => nav(appPath('/create/quiz'))}>
+          퀴즈 시작
         </button>
       </div>
     );
   }
 
-  const e = earned as Stats;            // ← 확정 바인딩
-  const total = Object.values(e).reduce((a, b) => a + b, 0);
-  
+  const e = earned as Stats;
+  const totalPoints = Object.values(e).reduce((a, b) => a + b, 0);
+  const totalXp = totalPoints * QUIZ_XP_PER_POINT;
+
   const label = subjectLabel;
 
   function confirm() {
-    // baseStats만 세팅하고 나머지는 기본값(레벨/장비 등)
-    PlayerOps.createCharacter?.({baseStats: e});
-    nav(appPath('/play'), {replace: true});
+    // 1) 캐릭터 데이터 기본 생성/초기화
+    if (typeof PlayerOps.createCharacter === 'function') {
+      PlayerOps.createCharacter({});
+    }
+    // 2) 방금 생성/초기 데이터 불러오기
+    const p = loadPlayer();
+    // 3) 과목별로 XP 지급
+    for (const s of SUBJECTS) {
+      const cnt = Math.max(0, e[s] | 0);
+      const xp = cnt * QUIZ_XP_PER_POINT;
+      if (xp > 0) grantSubjectXp(p, s as any, xp);
+    }
+    // 4) 저장
+    (PlayerOps as any)?.save?.(p) ?? localStorage.setItem('qd:player', JSON.stringify(p));
+    // 5) 플레이로
+    nav(appPath('/play'), { replace: true });
   }
 
   function restart() {
@@ -122,7 +137,6 @@ export default function CreateConfirm() {
   
   return (
     <div className="max-w-5xl mx-auto p-6">
-        <p className="opacity-80 mt-2">총 {total}포인트를 획득했습니다.</p>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
             <div className="text-sm font-semibold mb-2">캐릭터 미리보기</div>

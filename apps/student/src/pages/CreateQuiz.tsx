@@ -7,6 +7,8 @@ import { SUBJECTS, subjectLabel } from '../core/char.types';
 
 import { makeServices } from '../core/service.locator';
 
+const QUIZ_XP_PER_POINT = 10; // ✅ Confirm과 동일 값 유지
+
 // 문제팩 URL 생성 (Play.tsx와 동일 로직 축약)
 function resolvePackUrl(pack: string) {
     const base = import.meta.env.BASE_URL || '/';
@@ -50,7 +52,7 @@ function normalizeQuestion(raw: any, i: number): Question | null {
   }
 export default function CreateQuiz(){
   const nav = useNavigate();
-  const [idx, setIdx] = useState(0);  
+  const [idx, setIdx] = useState(0);
   const [earned, setEarned] = useState<Stats>({KOR:0,ENG:0,MATH:0,SCI:0,SOC:0,HIST:0});
   const progress = Math.round((idx/10)*100);
   const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
@@ -58,10 +60,8 @@ export default function CreateQuiz(){
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string>('');
-  const pack = 'sample'; // 필요 시 쿼리/설정으로 교체
+  const pack = 'sample';
 
-
-  // ── 미니 캐릭터 프리뷰 상태(옷장 미리보기 축약) ──
   const { inv } = useMemo(() => makeServices(), []);
   const [invState, setInvState] = useState<any>(null);
   useEffect(()=>{ (async()=> setInvState(await inv.load()))(); }, [inv]);
@@ -225,28 +225,27 @@ export default function CreateQuiz(){
       <div className="mt-4 flex items-center gap-2">
         <span className="text-sm opacity-70">현재 과목:</span>
         <span className="px-2 py-1 rounded bg-indigo-600/30 border border-indigo-400/50">
-      {phase === 'quiz' && currentSubj ? label(currentSubj) : '과목 선택'}
-          </span>
-        </div>
-      <div className="mt-4 text-sm opacity-80">현재 문항: {idx+1}/10</div>
-      {/* 본문: 좌 = 캐릭터 미리보기, 우 = 레이더/요약 + 문제 */}
+          {phase === 'quiz' && currentSubj ? label(currentSubj) : '과목 선택'}
+        </span>
+      </div>
+
       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        {/* 왼쪽: Wardrobe 미리보기 축약판 */}
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <div className="text-sm font-semibold mb-2">캐릭터 미리보기</div>
           <MiniPreview equipped={previewEquipped} />
         </div>
-        {/* 오른쪽: 레이더 + 현재 과목 문제 */}
+
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <div className="grid grid-cols-2 gap-4 items-center">
             <MiniRadar6
               values={[earned.KOR,earned.ENG,earned.MATH,earned.SCI,earned.SOC,earned.HIST]}
-              labels={[label('KOR'),label('ENG'),label('MATH'),label('SCI'),label('SOC'),label('HIST')]}
+              labels={[label('KOR'),label('ENG'),label('MATH'),label('SCI'),label('HIST'),label('SOC')]}
             />
             <ul className="text-sm grid grid-cols-2 gap-2">
               {SUBJECTS.map(s => (
                 <li key={s} className="p-2 rounded bg-black/20 border border-white/10 flex items-center justify-between">
-                  <span>{label(s)}</span><b>+{earned[s]}</b>
+                  <span>{label(s)}</span>
+                  <b>+{earned[s]} pt / +{earned[s]*QUIZ_XP_PER_POINT} XP</b>
                 </li>
               ))}
             </ul>
@@ -272,7 +271,7 @@ export default function CreateQuiz(){
                 <>
                 <div className="font-medium whitespace-pre-wrap">{currentQ.stem}</div>
                 <div className="grid gap-2 mt-3">
-                  {currentQ.choices.map(c => (
+                  {currentQ.choices.map((c: Choice) => (
                     <button key={c.key}
                             className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
                             onClick={()=>onAnswer(c.key)}>
