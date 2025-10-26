@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import { STAGES, type StageDef } from '../game/stage';
 import { ENEMIES, subjectFromSprite } from '../game/combat/enemy';
-import { SUBJECT_TO_COLOR, SKILL_HEX } from '../game/combat/affinity';
+import { SUBJECT_TO_COLOR, SKILL_HEX } from '../core/affinity';
 
 function stageList(): StageDef[] {
   return Object.values(STAGES);
