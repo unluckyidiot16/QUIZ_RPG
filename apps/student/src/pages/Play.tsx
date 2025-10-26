@@ -13,8 +13,8 @@ import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
 import type { EnemyState } from '../game/combat/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
 import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../game/combat/affinity';
-import { loadPlayer, loadItemDB, deriveBattleStats, type Subject } from '../core/player';
-import { SUBJECTS, SUBJECT_LABEL } from '../core/char.types';
+import { loadPlayer, loadItemDB, deriveBattleStats } from '../core/player';
+import { SUBJECTS, SUBJECT_LABEL, type Subject } from '../core/char.types';
 import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
 import { staticURL, appPath } from '../shared/lib/urls';
@@ -389,7 +389,8 @@ export default function Play() {
       // 1) 과목별 공격력 선택
       const subj  = resolveSubject();
       const esubj = resolveEnemySubject();
-      const atk   = combatStats?.subAtk?.[subj] ?? 1;
+      const atkMap: Readonly<Record<Subject, number>> = (combatStats?.subAtk ?? {}) as any;
+      const atk = atkMap[subj] ?? 1;
       
       // 2) 치명타(기존 로직 유지, 배수는 공격력 기준)
       const crit  = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(atk * 0.5) : 0;
@@ -710,8 +711,11 @@ export default function Play() {
             </div>
             <div className="text-xs opacity-70">
               적:{enemyDef.name}
-              {' · '}S:{resolveSubject()}({SUBJECT_TO_COLOR[resolveSubject()]})
-              {' vs '}ES:{resolveEnemySubject()}({SUBJECT_TO_COLOR[resolveEnemySubject()]})
+              {(() => {
+                const s: Subject  = resolveSubject();
+                const es: Subject = resolveEnemySubject();
+                return <> · S:{s}({SUBJECT_TO_COLOR[s]}) vs ES:{es}({SUBJECT_TO_COLOR[es]})</>;
+              })()}
               {' / '}패턴:{pattern} / 턴:{turnRef.current}            </div>
             <HPBar value={playerHP} max={playerMaxHP} label="Player"/>
             <HPBar value={enemyHP} max={enemyMaxHP} label="Enemy"/>
@@ -722,7 +726,7 @@ export default function Play() {
             <div className="p-4 rounded bg-slate-800">
               <div className="font-medium mb-3">과목을 선택하세요</div>
               <div className="grid grid-cols-2 gap-3">
-                {options.map(s => (
+                {options.map((s: Subject) => (
                   <button key={s} onClick={() => chooseSubject(s)}
                           className="p-4 rounded-xl border border-white/10 bg-slate-900/60 text-left">
                     <div className="flex items-center gap-2">

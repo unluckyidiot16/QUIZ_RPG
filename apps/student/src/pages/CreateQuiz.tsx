@@ -239,7 +239,7 @@ export default function CreateQuiz(){
           <div className="grid grid-cols-2 gap-4 items-center">
             <MiniRadar6
               values={[earned.KOR,earned.ENG,earned.MATH,earned.SCI,earned.SOC,earned.HIST]}
-              labels={[label('KOR'),label('ENG'),label('MATH'),label('SCI'),label('HIST'),label('SOC')]}
+              labels={[label('KOR'),label('ENG'),label('MATH'),label('SCI'),label('SOC'),label('HIST')]}
             />
             <ul className="text-sm grid grid-cols-2 gap-2">
               {SUBJECTS.map(s => (

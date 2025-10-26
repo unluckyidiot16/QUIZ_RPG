@@ -156,10 +156,10 @@ function SubjectBlock({ stat }:{ stat: { subAtk: Record<string, number> } & { hp
         <Radar6
           values={SUBJECTS.map(s=> stat.subAtk[s] ?? 0)}
           labels={SUBJECTS.map(s=> SUBJECT_LABEL[s])}
-          colors={SUBJECTS.map(s=> SKILL_HEX[SUBJECT_TO_COLOR[s]])}
+          colors={SUBJECTS.map((s: Subject)=> SKILL_HEX[SUBJECT_TO_COLOR[s]])}
         />
         <ul className="text-sm grid grid-cols-2 gap-2">
-          {SUBJECTS.map(s => {
+          {SUBJECTS.map((s: Subject) => {
             const c = SUBJECT_TO_COLOR[s];
             const cls = COLOR_CLS[c];
             return (

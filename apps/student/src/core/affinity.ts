@@ -1,5 +1,5 @@
 // apps/student/src/game/combat/affinity.ts
-export type Subject = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'HIST';
+import type { Subject } from '../core/char.types';
 export type SkillColor = 'blank'|'blue'|'dark'|'green'|'red'|'yellow';
 
 export const SUBJECT_ORDER: Subject[] = ['KOR','ENG','MATH','SCI','SOC','HIST'];

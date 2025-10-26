@@ -2,6 +2,8 @@ import { SUBJECTS, type Subject, type Stats, type SubjectLevels } from './char.t
 
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
+export type { Subject } from './char.types';  // ✅ 이것만 유지
+
 // 로컬스토리지 I/O
 const LS_KEY = 'qd:player';
 // === Player schema migration (drop-in) =======================================
@@ -46,7 +48,7 @@ export const PLAYER_SCHEMA_VERSION = 2;
 type EquipSlots = 'Weapon'|'Armor'|'Accessory';
 
 const DEFAULT_BASE = { hp: 50, def: 0 };
-const DEFAULT_EQUIP: Record<EquipSlots, string | undefined> = {
+const DEFAULT_EQUIP: Record<EquipmentSlot, string | undefined> = {
   Weapon: undefined, Armor: undefined, Accessory: undefined,
 };
 
@@ -89,6 +91,11 @@ export function migratePlayerSchema(raw: any){
     const src = baseStatsFromCharacter ?? legacyStats ?? null;
     p.subAtk = normalizeSubAtk(src || {});
   }
+
+  // base.subAtk이 있을 때엔 항상 레거시도 동기화(전투/표시 경로 일치 보장)
+  p.subAtk = normalizeSubAtk(p.base?.subAtk ?? p.subAtk);
+  // 선택: 인터페이스에 있는 version 필드도 맞춰 둠
+  p.version = PLAYER_SCHEMA_VERSION;
   
   return p;
 }
@@ -227,12 +234,15 @@ export function migratePlayerShape(p: any) {
 export function xpForLevel(n: number, base = 20){ return Math.round(base * Math.pow(n, 1.6)) }
 
 export function grantSubjectXp(p: any, subject: Subject, amount: number){
+  p.base = p.base ?? { hp:50, def:0, subLevels:{}, subAtk:{} };
+  p.base.subLevels = p.base.subLevels ?? {};
   const L = p.base.subLevels;
   const slot = L[subject] || (L[subject] = { lv: 0, xp: 0 });
   let lv = slot.lv, xp = slot.xp + Math.max(0, amount|0);
   while (xp >= needXP(lv)) { xp -= needXP(lv); lv += 1; }
   slot.lv = lv; slot.xp = xp;
-  p.base.subAtk = deriveSubAtkFromLevels(L);
+  p.base.subAtk = deriveSubAtkFromLevels(L);        // ⬅️ 원래 있던 갱신
+  p.subAtk = { ...p.base.subAtk };                  // ⬅️ 레거시 필드도 미러
   return p;
 }
 
@@ -355,7 +365,8 @@ export function deriveBattleStats(items: Record<string, ItemDef>, s: PlayerState
   }
 
   // ← 여기서 6키를 보장해 반환
-  const baseSub = normalizeSubAtk(s.subAtk);
+  const baseSub: Record<Subject, number> =
+    ((s as any)?.base?.subAtk ?? s.subAtk ?? {}) as Record<Subject, number>;
   const outSub: SubjectPower = SUBJECTS.reduce((acc,k)=> (acc[k]= baseSub[k] + addSub[k], acc), {} as SubjectPower);
 
   return { hp: s.base.hp + addHp, def: s.base.def + addDef, subAtk: outSub };
