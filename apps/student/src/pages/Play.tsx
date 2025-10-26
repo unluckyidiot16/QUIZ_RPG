@@ -13,7 +13,7 @@ import { useSpriteAnimator } from '../core/useSpriteAnimator';
 import type { EnemyState } from '../core/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
 import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../core/affinity';
-import { loadPlayer, loadItemDB, deriveBattleStats } from '../core/player';
+import { loadPlayer, loadItemDB, deriveBattleStats, grantSubjectXp, savePlayer } from '../core/player';
 import { SUBJECTS, SUBJECT_LABEL, type Subject } from '../core/char.types';
 import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
@@ -391,6 +391,19 @@ export default function Play() {
       const esubj = resolveEnemySubject();
       const atkMap: Readonly<Record<Subject, number>> = (combatStats?.subAtk ?? {}) as any;
       const atk = atkMap[subj] ?? 1;
+
+      // ✅ 정답 시 과목 경험치 지급
+      // ⚠️ 부족 데이터: “정답 1개당 지급 XP” 정책값(예: 5, 10 등)
+      //  - 아래 상수는 임시 이름입니다. 팀이 원하는 값으로 player.ts(혹은 constants)에서 export해 사용하세요.
+      const PLAY_XP_PER_CORRECT = /* TODO: 결정값 */ 5;
+      const p = loadPlayer();
+      grantSubjectXp(p, subj, PLAY_XP_PER_CORRECT);
+      savePlayer(p);
+      // 전투 스탯도 즉시 갱신(과목 공격력 반영)
+      try {
+        const items = await loadItemDB('/packs/items.v1.json');
+        setCombatStats(deriveBattleStats(items, loadPlayer()));
+      } catch {}
       
       // 2) 치명타(기존 로직 유지, 배수는 공격력 기준)
       const crit  = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(atk * 0.5) : 0;
