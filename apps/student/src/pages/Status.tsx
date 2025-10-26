@@ -54,8 +54,8 @@ export default function Status(){
           <div className="mt-2 flex gap-2">
             <Link className="px-3 py-1 rounded bg-slate-700" to="/create">캐릭터 설정으로 이동</Link>
             <button
-              className="px-3 py-1 rounded bg-slate-700"
-              onClick={() => { try { (PlayerOps as any)?.save?.(loadPlayer()); } catch(_) {} setPlayer(loadPlayer()); }}
+              className="px-3 py-1 rounded bg-slate-700" 
+              onClick={() => { try { const p = loadPlayer(); savePlayer(p); } catch(_) {} setPlayer(loadPlayer()); }}
             >
               재시도
             </button>
@@ -109,7 +109,7 @@ function LevelBlock({ player, setPlayer, busy, setBusy }:{
     setBusy(true);
     const p = loadPlayer();
     grantSubjectXp(p, s, v);
-    (PlayerOps as any)?.save?.(p);
+    savePlayer(p);
     setPlayer(loadPlayer());
     setBusy(false);
   };
