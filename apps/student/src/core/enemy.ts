@@ -1,7 +1,7 @@
 // apps/student/src/game/combat/enemy.ts
 // Drop-in replacement: Sprite(객체) → 색상 추론 → 과목(6) 역매핑 포함
 
-import { Subject, SkillColor, COLOR_TO_SUBJECT } from './affinity';
+import { Subject, SkillColor, COLOR_TO_SUBJECT } from '../affinity';
 
 // ───────────────────────────────────────────────────────────────────────────────
 // 스프라이트/적 타입
