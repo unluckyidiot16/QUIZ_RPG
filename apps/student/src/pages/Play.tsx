@@ -9,7 +9,7 @@ import { actByPattern, PatternKey, applyShieldToDamage } from '../game/combat/pa
 import { MAX_HP, PLAYER_BASE_DMG, PLAYER_CRIT_CHANCE } from '../game/combat/constants';
 import { pickEnemyByQuery } from '../core/enemy';
 import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../core/sprites';
-import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
+import { useSpriteAnimator } from '../core/useSpriteAnimator';
 import type { EnemyState } from '../core/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
 import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../core/affinity';
