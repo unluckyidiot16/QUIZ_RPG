@@ -1,11 +1,45 @@
-import type { Stats } from './char.types';
-import { SUBJECTS } from './char.types';
+import { SUBJECTS, type Subject, type Stats, type SubjectLevels } from './char.types';
 
 export type EquipmentSlot = 'Weapon'|'Armor'|'Accessory';
 
 // 로컬스토리지 I/O
 const LS_KEY = 'qd:player';
 // === Player schema migration (drop-in) =======================================
+
+// ===== 파라미터(튜닝값) =====
+export const ATK_PER_LEVEL = 2;
+export const HP_PER_L_SUM  = 5;
+export const DEF_PER_L_SUM = 1;
+export const needXP = (lv: number) => 10 + 5 * lv; // n→n+1
+
+function migrateToLevels(p: any) {
+  if (p?.base?.subLevels) return; // 이미 있으면 스킵
+  const prev: Partial<Stats> = (p?.base?.subAtk && typeof p.base.subAtk === 'object') ? p.base.subAtk : {};
+  const levels = {} as SubjectLevels;
+  for (const s of SUBJECTS) {
+    const atk = Number(prev[s] ?? 0);
+    const lv = Math.max(0, Math.floor(atk / ATK_PER_LEVEL));
+    levels[s] = { lv, xp: 0 };
+  }
+  p.base.subLevels = levels;
+  p.base.subAtk = deriveSubAtkFromLevels(levels); // 동기화
+}
+
+
+// 안전 숫자
+const num = (v: unknown, d = 0) => (Number.isFinite(+((v as any))) ? +((v as any)) : d);
+
+// ===== 파생 유틸 =====
+// ===== 파생 유틸 (⚠️ export 필수) =====
+export function deriveSubAtkFromLevels(levels: SubjectLevels): Stats {
+  const out = {} as Record<Subject, number>;
+  for (const s of SUBJECTS) out[s] = (levels?.[s]?.lv ?? 0) * ATK_PER_LEVEL;
+  return out as Stats;
+}
+
+export function totalLevel(levels: SubjectLevels): number {
+  return SUBJECTS.reduce((sum, s) => sum + (levels[s]?.lv ?? 0), 0);
+}
 
 export const PLAYER_SCHEMA_VERSION = 2;
 
@@ -24,12 +58,17 @@ export function migratePlayerSchema(raw: any){
   // 버전 플래그
   const cur = Number(p.__v) || 0;
 
+  migrateToLevels(p);
+
   // 1) base 보정 (없거나 타입이 잘못된 경우)
-  const base = p.base && typeof p.base === 'object' ? p.base : {};
+  const baseIn = p?.base && typeof p.base === 'object' ? p.base : {};
   p.base = {
-    hp: coerceNum(base.hp, DEFAULT_BASE.hp),
-    def: coerceNum(base.def, DEFAULT_BASE.def),
+    hp:  num(baseIn.hp, 50),
+    def: num(baseIn.def, 0),
+    subAtk: (baseIn.subAtk && typeof baseIn.subAtk === 'object') ? baseIn.subAtk : {},
+    subLevels: (baseIn.subLevels && typeof baseIn.subLevels === 'object') ? baseIn.subLevels : undefined,
   };
+  if (!p.base.subLevels) migrateToLevels(p);
 
   // 2) 장비/가방 보정
   p.equipment = p.equipment && typeof p.equipment === 'object'
@@ -143,8 +182,6 @@ export async function loadItemDB(urlLike?: string): Promise<Record<string, ItemD
 }
 
 // ── 과목(6) 정의 ──
-export type Subject = 'KOR'|'ENG'|'MATH'|'SCI'|'SOC'|'HIST';
-
 export type SubjectPower = Record<Subject, number>;
 
 export interface StatsBase { hp:number; def:number }
@@ -190,6 +227,17 @@ export function migratePlayerShape(p: any) {
 
 /** xp_for_level(n) = base * n^1.6 (round) */
 export function xpForLevel(n: number, base = 20){ return Math.round(base * Math.pow(n, 1.6)) }
+
+export function grantSubjectXp(p: any, subject: Subject, amount: number){
+  const L = p.base.subLevels;
+  const slot = L[subject] || (L[subject] = { lv: 0, xp: 0 });
+  let lv = slot.lv, xp = slot.xp + Math.max(0, amount|0);
+  while (xp >= needXP(lv)) { xp -= needXP(lv); lv += 1; }
+  slot.lv = lv; slot.xp = xp;
+  p.base.subAtk = deriveSubAtkFromLevels(L);
+  return p;
+}
+
 
 /** 누적 XP로부터 현재 레벨/진행 계산 */
 export function levelFromXp(totalXp: number, base = 20, maxLevel = 100){

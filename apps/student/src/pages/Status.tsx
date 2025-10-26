@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { loadPlayer, levelFromXp, loadItemDB, deriveBattleStats, PlayerOps, type PlayerState, type ItemDef } from '../core/player'
-import { SUBJECTS, SUBJECT_LABEL } from '../core/char.types'
+import { loadPlayer, loadItemDB, deriveBattleStats, PlayerOps, needXP, type PlayerState, type ItemDef } from '../core/player'
 import { SUBJECT_TO_COLOR, SKILL_HEX, COLOR_CLS } from '../game/combat/affinity'
+import { SUBJECTS, SUBJECT_LABEL, type Subject } from '../core/char.types';
+import { grantSubjectXp, totalLevel } from '../core/player';
+
 
 export default function Status(){
   const [player, setPlayer] = useState<PlayerState|null>(null)
@@ -100,22 +102,50 @@ export default function Status(){
 function LevelBlock({ player, setPlayer, busy, setBusy }:{
   player: PlayerState, setPlayer: (p: PlayerState)=>void, busy: boolean, setBusy: (b:boolean)=>void
 }){
-  const lv = levelFromXp(player.totalXp)
+  const levels = (player as any)?.base?.subLevels || {};
+  const Lsum = totalLevel(levels);
+
+  const addXp = async (s: Subject, v: number) => {
+    setBusy(true);
+    const p = loadPlayer();
+    grantSubjectXp(p, s, v);
+    (PlayerOps as any)?.save?.(p);
+    setPlayer(loadPlayer());
+    setBusy(false);
+  };
+
   return (
     <div className="mt-3 p-3 rounded bg-slate-800/60">
       <div className="flex items-center justify-between">
-        <div className="font-semibold">Lv. {lv.level}</div>
-        <div className="text-sm opacity-80">XP {lv.curXp} / {lv.needXp}</div>
+        <div className="font-semibold">Overall Lv. {Lsum}</div>
+        <div className="text-sm opacity-80">과목별 레벨/경험치</div>
       </div>
-      <div className="h-2 bg-slate-700 rounded mt-2 overflow-hidden">
-        <div className="h-full rounded bg-emerald-500" style={{width: `${Math.round(lv.progress*100)}%`}} />
-      </div>
-      <div className="mt-2 flex gap-2">
-        <button disabled={busy} onClick={async()=>{ setBusy(true); PlayerOps.grantXp(1);  setPlayer(loadPlayer()); setBusy(false) }} className="px-3 py-1 rounded bg-emerald-600">+1 XP</button>
-        <button disabled={busy} onClick={async()=>{ setBusy(true); PlayerOps.grantXp(10); setPlayer(loadPlayer()); setBusy(false) }} className="px-3 py-1 rounded bg-emerald-700">+10 XP</button>
-      </div>
+
+      <ul className="mt-3 space-y-2">
+        {SUBJECTS.map((s)=> {
+          const lv = levels[s]?.lv ?? 0;
+          const xp = levels[s]?.xp ?? 0;
+          const need = needXP(lv);
+          const pct = Math.round((xp/need)*100);
+          return (
+            <li key={s} className="flex items-center gap-3">
+              <div className="w-16 text-sm opacity-80">{SUBJECT_LABEL[s]}</div>
+              <div className="flex-1">
+                <div className="h-2 bg-slate-700 rounded overflow-hidden">
+                  <div className="h-full rounded bg-emerald-500" style={{ width: `${pct}%` }} />
+                </div>
+                <div className="text-xs opacity-70 mt-0.5">Lv {lv} · XP {xp}/{need}</div>
+              </div>
+              <div className="flex gap-1">
+                <button disabled={busy} onClick={()=>addXp(s, 1)}  className="px-2 py-1 rounded bg-slate-700 text-xs">+1</button>
+                <button disabled={busy} onClick={()=>addXp(s, 10)} className="px-2 py-1 rounded bg-slate-700 text-xs">+10</button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
-  )
+  );
 }
 
 function SubjectBlock({ stat }:{ stat: { subAtk: Record<string, number> } & { hp:number, def:number } }){
