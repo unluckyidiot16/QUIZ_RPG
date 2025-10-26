@@ -12,7 +12,7 @@ import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../game/combat/sp
 import { useSpriteAnimator } from '../game/combat/useSpriteAnimator';
 import type { EnemyState } from '../game/combat/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
-import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../game/combat/affinity';
+import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../core/affinity';
 import { loadPlayer, loadItemDB, deriveBattleStats } from '../core/player';
 import { SUBJECTS, SUBJECT_LABEL, type Subject } from '../core/char.types';
 import { applyDrops } from '../game/loot';
