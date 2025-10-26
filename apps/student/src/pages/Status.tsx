@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { loadPlayer, loadItemDB, deriveBattleStats, PlayerOps, needXP, type PlayerState, type ItemDef } from '../core/player'
-import { SUBJECT_TO_COLOR, SKILL_HEX, COLOR_CLS } from '../game/combat/affinity'
+import { SUBJECT_TO_COLOR, SKILL_HEX, COLOR_CLS } from '../core/affinity'
 import { SUBJECTS, SUBJECT_LABEL, type Subject } from '../core/char.types';
 import { grantSubjectXp, totalLevel } from '../core/player';
 
