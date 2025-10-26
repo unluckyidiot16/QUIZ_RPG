@@ -1,7 +1,7 @@
 // apps/student/src/pages/Lobby.tsx (스테이지 섹션 추가용)
 import { Link } from 'react-router-dom';
 import { STAGES, type StageDef } from '../game/stage';
-import { ENEMIES, subjectFromSprite } from '../game/combat/enemy';
+import { ENEMIES, subjectFromSprite } from '../core/enemy';
 import { SUBJECT_TO_COLOR, SKILL_HEX } from '../core/affinity';
 
 function stageList(): StageDef[] {
