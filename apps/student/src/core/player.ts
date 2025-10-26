@@ -58,8 +58,6 @@ export function migratePlayerSchema(raw: any){
   // 버전 플래그
   const cur = Number(p.__v) || 0;
 
-  migrateToLevels(p);
-
   // 1) base 보정 (없거나 타입이 잘못된 경우)
   const baseIn = p?.base && typeof p.base === 'object' ? p.base : {};
   p.base = {
