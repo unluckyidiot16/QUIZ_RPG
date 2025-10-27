@@ -33,11 +33,6 @@ type Question = {
   tags?: string[];
 };
 
-// 과목별 뱅크(캐시)
-const subjectBankRef = useRef<Partial<Record<Subject, QuizItem[]>>>({});
-const [subjectBank, setSubjectBank] = useState<Partial<Record<Subject, QuizItem[]>>>({});
-const [usedIds, setUsedIds] = useState<Set<string>>(new Set()); // 중복 회피
-
 
 const SUBJECT_PACK: Record<Subject, string> = {
   KOR: 'KorPack',
@@ -166,9 +161,11 @@ export default function Play() {
   const [combatStats, setCombatStats] = useState<ReturnType<typeof deriveBattleStats> | null>(null);
 
   const [timeLeftMs, setTimeLeftMs] = useState<number>(0);
-
+  
+// 과목별 뱅크(캐시)
+  const subjectBankRef = useRef<Partial<Record<Subject, QuizItem[]>>>({});
+  const [subjectBank, setSubjectBank] = useState<Partial<Record<Subject, QuizItem[]>>>({});
   const [questions, setQuestions] = useState<QuizItem[]>([]);
-  const [qpools, setQpools] = useState<ReturnType<typeof buildQuestionPools> | null>(null);
   const [usedIds, setUsedIds] = useState<Set<string>>(new Set()); // 중복 회피
 
   const triggerShake = (ms = 120) => {
