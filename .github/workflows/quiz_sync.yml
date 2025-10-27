@@ -16,11 +16,13 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0                 # rebase/pull 위해 전체 히스토리
+          # pull --rebase를 위해 전체 히스토리 필요
+          fetch-depth: 0
           persist-credentials: true
 
       - name: Setup Node
@@ -30,12 +32,12 @@ jobs:
 
       - name: Generate quiz JSON from Google Sheet
         env:
-          # ✅ 레포 > Settings > Secrets and variables > Actions 설정
+          # ✅ 레포지토리 Settings → Secrets and variables → Actions 에서 설정
           # Secrets:
-          #   - QUIZ_SHEET_ID      (필수) 구글 시트 ID
+          #   - QUIZ_SHEET_ID   (필수) 구글 시트 ID
           # Variables:
-          #   - QUIZ_SHEET_NAME    (옵션) 탭명, 비우면 첫 시트
-          #   - QUIZ_OUT_PATH      (옵션) 기본 apps/student/public/packs/sample.json
+          #   - QUIZ_SHEET_NAME (옵션) 탭명 (비우면 첫 시트)
+          #   - QUIZ_OUT_PATH   (옵션) 출력 경로 (기본 apps/student/public/packs/sample.json)
           SHEET_ID:   ${{ secrets.QUIZ_SHEET_ID }}
           SHEET_NAME: ${{ vars.QUIZ_SHEET_NAME }}
           OUT_PATH:   ${{ vars.QUIZ_OUT_PATH }}
@@ -53,5 +55,6 @@ jobs:
             exit 0
           fi
           git commit -m "chore(quiz-pack): update from Google Sheet"
+          # 원격 변경을 위에 재배치한 뒤 push (non-fast-forward 방지)
           git pull --rebase origin "${BRANCH}"
           git push origin "${BRANCH}"
