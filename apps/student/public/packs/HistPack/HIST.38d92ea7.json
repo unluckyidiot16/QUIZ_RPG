@@ -1,0 +1,152 @@
+[
+  {
+    "id": "HIST-001",
+    "stem": "한글을 창제한 왕은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "태조"
+      },
+      {
+        "key": "B",
+        "text": "세종"
+      },
+      {
+        "key": "C",
+        "text": "영조"
+      },
+      {
+        "key": "D",
+        "text": "정조"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "세종대왕이 훈민정음을 창제",
+    "subject": "HIST",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "tags": [
+      "hist|korea|hangul"
+    ]
+  },
+  {
+    "id": "HIST-002",
+    "stem": "조선을 건국한 인물은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "세종"
+      },
+      {
+        "key": "B",
+        "text": "세조"
+      },
+      {
+        "key": "C",
+        "text": "이성계"
+      },
+      {
+        "key": "D",
+        "text": "정도전"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "조선의 개창자는 이성계",
+    "subject": "HIST",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "tags": [
+      "hist|korea|chosun"
+    ]
+  },
+  {
+    "id": "HIST-003",
+    "stem": "고려를 건국한 왕은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "태조 왕건"
+      },
+      {
+        "key": "B",
+        "text": "광종"
+      },
+      {
+        "key": "C",
+        "text": "문종"
+      },
+      {
+        "key": "D",
+        "text": "충렬왕"
+      }
+    ],
+    "answerKey": "A",
+    "explanation": "고려 태조는 왕건",
+    "subject": "HIST",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "tags": [
+      "hist|korea|goryeo"
+    ]
+  },
+  {
+    "id": "HIST-004",
+    "stem": "프랑스 혁명이 시작된 해는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "1776"
+      },
+      {
+        "key": "B",
+        "text": "1789"
+      },
+      {
+        "key": "C",
+        "text": "1815"
+      },
+      {
+        "key": "D",
+        "text": "1848"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "바스티유 습격 1789",
+    "subject": "HIST",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "tags": [
+      "hist|world|france"
+    ]
+  },
+  {
+    "id": "HIST-005",
+    "stem": "산업혁명이 처음 본격적으로 일어난 나라는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "프랑스"
+      },
+      {
+        "key": "B",
+        "text": "독일"
+      },
+      {
+        "key": "C",
+        "text": "영국"
+      },
+      {
+        "key": "D",
+        "text": "미국"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "영국에서 산업혁명 시작",
+    "subject": "HIST",
+    "difficulty": 5,
+    "timeLimitSec": 10,
+    "tags": [
+      "hist|world|industrial"
+    ]
+  }
+]
