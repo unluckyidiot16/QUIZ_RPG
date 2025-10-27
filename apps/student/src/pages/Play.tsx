@@ -270,8 +270,8 @@ export default function Play() {
   const patternRef = useRef<PatternKey>(initialPattern);
 
   // 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
-  const runToken = useMemo(() => (localStorage.getItem('qd:runToken') ?? 'dev'), []);
-  const rngRef = useRef(makeRng(runToken));
+  const [runSeed, setRunSeed] = useState<string | null>(null);
+  const rngRef = useRef<ReturnType<typeof makeRng> | null>(null);
   const turnRef = useRef(1);
 
   // 간단 HP Bar(임시)
@@ -302,6 +302,10 @@ export default function Play() {
 
         const ensure = (api as any).ensureRunToken || (api as any).newRunToken || (api as any).enterDungeon;
         if (typeof ensure === 'function') await ensure();
+        // 🔑 런 토큰 발급이 끝난 "후"에 시드/ RNG 초기화
+        const tok = localStorage.getItem('qd:runToken') || crypto.randomUUID();
+        setRunSeed(tok);
+        rngRef.current = makeRng(tok);
 
         // Proof (있으면 사용, 없어도 진행)
         try {
@@ -403,18 +407,18 @@ export default function Play() {
   }, []);
 
   useEffect(()=> {
-    const seed = localStorage.getItem('qd:runToken') ?? 'dev';
-    const opts = selectSubjectsForTurn(stage, turnRef.current, seed);
+    if (!runSeed) return; // 시드 준비 전이면 기다림
+    const opts = selectSubjectsForTurn(stage, turnRef.current, runSeed);
     setOptions(opts);
     setPhase('pick');
-  }, [stage, idx]); // 매 문제(or 라운드) 시작마다 갱신
+    }, [stage, idx, runSeed]);
 
   async function chooseSubject(s: Subject){
     setSubject(s);
 
     try {
       const bank = await ensureSubjectLoaded(s);
-      const rng = rngRef.current;
+      const rng = rngRef.current ?? { next: Math.random };
 
       // 중복 회피
       const pool = bank.filter(q => !usedIds.has(q.id));
@@ -458,7 +462,7 @@ export default function Play() {
     const isCorrect = (pick === q.answerKey);
     const subj  = resolveSubject();
     const turn = turnRef.current;
-    const rng = rngRef.current;
+    const rng = rngRef.current ?? { next: Math.random };
 
     const curPattern = patternRef.current;
     const enemyAct = actByPattern(curPattern, { rng: () => rng.next(), turn });

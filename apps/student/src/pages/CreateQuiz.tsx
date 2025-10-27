@@ -6,6 +6,7 @@ import type { Stats, Subject } from '../core/char.types';
 import { SUBJECTS, subjectLabel } from '../core/char.types';
 import { makeServices } from '../core/service.locator';
 
+
 const QUIZ_XP_PER_POINT = 10; // Confirm과 동일 값 유지
 const TOTAL = 10;             // 총 10문항
 
