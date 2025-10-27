@@ -1,0 +1,20 @@
+{
+  "packId": "SciPack",
+  "version": 1,
+  "subjects": {
+    "KOR": "KOR.97d170e1.json",
+    "ENG": "ENG.97d170e1.json",
+    "MATH": "MATH.97d170e1.json",
+    "SCI": "SCI.4b0bd9c2.json",
+    "SOC": "SOC.97d170e1.json",
+    "HIST": "HIST.97d170e1.json"
+  },
+  "counts": {
+    "KOR": 0,
+    "ENG": 0,
+    "MATH": 0,
+    "SCI": 5,
+    "SOC": 0,
+    "HIST": 0
+  }
+}
