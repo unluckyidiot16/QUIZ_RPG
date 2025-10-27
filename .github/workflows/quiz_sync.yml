@@ -16,13 +16,42 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    strategy:
+      # 동시에 push하면 충돌하므로 순차 실행
+      max-parallel: 1
+      matrix:
+        include:
+          # TODO: pack_id(출력 파일명)과 sheet_id(구글 시트 ID), sheet_name(탭명-옵션)을 알맞게 수정
+          - pack_id: KorPack
+            sheet_id: 1OX2u_syVng8EaPhI8p4dNkGH2Mphx9kD2uTfLgpqYXs
+            sheet_name: "KorPack"
+            out_path: apps/student/public/packs/KorPack.json
+          - pack_id: EngPack
+            sheet_id: 1yQ4pNJqF76mreLFo9OBuGPYaHiaiy3Ni3g1-TjiksYI
+            sheet_name: "EngPack"
+            out_path: apps/student/public/packs/EngPack.json
+          - pack_id: MathPack
+            sheet_id: 1ReEIuHeCpAD9Bv7CnlaBjoxEbuzgrbcKcf8_m6qK4Q8
+            sheet_name: "MathPack"
+            out_path: apps/student/public/packs/MathPack.json
+          - pack_id: SciPack
+            sheet_id: 1kOUTNqx5-fUEMzeK4kLqUi2MrjA41_GFpS66CZ_XV6s
+            sheet_name: "SciPack"
+            out_path: apps/student/public/packs/SciPack.json
+          - pack_id: SocPack
+            sheet_id: 1h5_gqZxYg_x1YYNhzLpJbZipQy2TdOlBTi-lzyeq4To
+            sheet_name: "SocPack"
+            out_path: apps/student/public/packs/SocPack.json
+          - pack_id: HistPack
+            sheet_id: 10cdYaZUUhYKBVzrUsRWVLyLmryY24b7sYhoJETyQ_0g
+            sheet_name: "HistPack"
+            out_path: apps/student/public/packs/HistPack.json
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # 기본 브랜치로 명시 체크아웃 (예: main)
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: true
 
@@ -31,46 +60,45 @@ jobs:
         with:
           node-version: 20
 
-      - name: Generate quiz JSON from Google Sheet
+      - name: Generate JSON from Google Sheet (single file per sheet)
         env:
-          # ✅ 레포지토리 Settings → Secrets and variables → Actions 에서 설정
-          # Secrets:
-          #   - QUIZ_SHEET_ID   (필수) 구글 시트 ID
-          # Variables:
-          #   - QUIZ_SHEET_NAME (옵션) 탭명 (비우면 첫 시트)
-          #   - QUIZ_OUT_PATH   (옵션) 출력 경로 (기본 apps/student/public/packs/sample.json)
-          SHEET_ID:   ${{ secrets.QUIZ_SHEET_ID }}
-          SHEET_NAME: ${{ vars.QUIZ_SHEET_NAME }}
-          OUT_PATH:   ${{ vars.QUIZ_OUT_PATH }}
+          SHEET_ID:   ${{ matrix.sheet_id }}
+          SHEET_NAME: ${{ matrix.sheet_name }}
+          OUT_PATH:   ${{ matrix.out_path }}
+          # (선택) 아래 2개를 쓰면 과목별 분할 + index.json도 함께 생성됩니다.
+          PACK_ID:    ${{ matrix.pack_id }}
+          OUT_DIR:    apps/student/public/packs/${{ matrix.pack_id }}
+          # (선택) GEN 처리 모드 — allowGEN 이면 GEN을 별도 파일로 유지
+          SUBJECT_MODE: allowGEN
+          GEN_MAP_TO:  ""
         run: node scripts/sheet_to_quizpack.mjs
 
       - name: Commit & Push (rebase + safe retry)
         env:
           BRANCH: ${{ github.event.repository.default_branch }}
+          PACK_ID: ${{ matrix.pack_id }}
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config pull.rebase true
           git config rebase.autoStash true
+
           git add -A
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No changes for $PACK_ID."
             exit 0
           fi
-          git commit -m "chore(quiz-pack): update from Google Sheet"
 
-          # 현재 브랜치/트래킹 보장
+          git commit -m "chore(quiz-pack): update from Google Sheet (${PACK_ID})"
+
           BR="${BRANCH:-$(git symbolic-ref --short HEAD || echo main)}"
           git fetch origin "$BR"
           git branch --set-upstream-to="origin/$BR" "$BR" || true
-
-          # 원격 위에 rebase
           git pull --rebase --autostash origin "$BR"
 
-          # 푸시 (원격이 다시 앞서면 1회 안전 강제)
           if git push origin HEAD:"$BR"; then
-            echo "Pushed successfully."
+            echo "Pushed ${PACK_ID} successfully."
           else
             echo "Push rejected; retry with --force-with-lease once."
             git push --force-with-lease origin HEAD:"$BR"
