@@ -502,9 +502,8 @@ export default function Play() {
       const thisLatch = tagLatchRef.current;
 
       playerDmgToEnemy = applyShieldToDamage(raw, enemyAct.shieldActive);
-      if (enemyAct.spikeOnHit) spikeDmgToPlayer = enemyAct.spikeOnHit;
-
-      let tagLabel: 'WEAK!' | 'RESIST!' | 'SHIELD' | null = null;
+      if (enemyAct.spikeOnHit && patternRef.current === 'Spiky') {spikeDmgToPlayer = enemyAct.spikeOnHit;}
+      let tagLabel: 'WEAK!' | 'RESIST!' | 'SHIELD' | 'SPIKE!' | null = null;
       if (enemyAct.shieldActive) {
         tagLabel = 'SHIELD';
       } else {
@@ -572,6 +571,12 @@ export default function Play() {
           setHitBorder('inner');
           window.setTimeout(() => setHitBorder(null), 160);
         }
+      }
+      if (spikeDmgToPlayer > 0) {
+        setHitBorder('outer');                // 붉은 외곽 테두리
+        setTimeout(() => setHitBorder(null), 200);
+        triggerShake(120);                    // 화면 흔들림
+        showTag('SPIKE!');                    // 태그 팝업
       }
     }
 
