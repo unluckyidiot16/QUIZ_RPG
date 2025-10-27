@@ -1,0 +1,152 @@
+[
+  {
+    "id": "KOR-001",
+    "stem": "다음 중 올바른 표기는 무엇인가",
+    "choices": [
+      {
+        "key": "A",
+        "text": "되요"
+      },
+      {
+        "key": "B",
+        "text": "돼요"
+      },
+      {
+        "key": "C",
+        "text": "되여"
+      },
+      {
+        "key": "D",
+        "text": "대요"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "되다'의 활용은 '돼요'가 맞음",
+    "subject": "KOR",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "tags": [
+      "kor|맞춤법"
+    ]
+  },
+  {
+    "id": "KOR-002",
+    "stem": "다음 중 올바른 띄어쓰기는 무엇인가",
+    "choices": [
+      {
+        "key": "A",
+        "text": "할수 있다"
+      },
+      {
+        "key": "B",
+        "text": "할 수있다"
+      },
+      {
+        "key": "C",
+        "text": "할 수 있다"
+      },
+      {
+        "key": "D",
+        "text": "할수있다"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "보조용언 결합은 '할 수 있다'로 띄어 씀",
+    "subject": "KOR",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "tags": [
+      "kor|띄어쓰기"
+    ]
+  },
+  {
+    "id": "KOR-003",
+    "stem": "다음 중 '않'을 올바르게 사용한 문장은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "그는 웃지 안았다"
+      },
+      {
+        "key": "B",
+        "text": "그는 웃지 않았다"
+      },
+      {
+        "key": "C",
+        "text": "그는 않 웃었다"
+      },
+      {
+        "key": "D",
+        "text": "그는 않앗다"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "부정부사 '않-'은 용언 앞에 붙여 '않았다'로 씀",
+    "subject": "KOR",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "tags": [
+      "kor|부정표현"
+    ]
+  },
+  {
+    "id": "KOR-004",
+    "stem": "다음 중 표준어는 무엇인가",
+    "choices": [
+      {
+        "key": "A",
+        "text": "설레이다"
+      },
+      {
+        "key": "B",
+        "text": "설레다"
+      },
+      {
+        "key": "C",
+        "text": "설레여"
+      },
+      {
+        "key": "D",
+        "text": "설레인다"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "표준어는 '설레다'",
+    "subject": "KOR",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "tags": [
+      "kor|표준어"
+    ]
+  },
+  {
+    "id": "KOR-005",
+    "stem": "다음 중 맞춤법이 옳은 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "어림 잡다"
+      },
+      {
+        "key": "B",
+        "text": "어림잡다"
+      },
+      {
+        "key": "C",
+        "text": "어림 집다"
+      },
+      {
+        "key": "D",
+        "text": "어림잡 다"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "합성어 '어림잡다'는 붙여 씀",
+    "subject": "KOR",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "tags": [
+      "kor|합성어"
+    ]
+  }
+]
