@@ -201,8 +201,11 @@ export default function Play() {
   const [enemyHP, setEnemyHP] = useState(MAX_HP);
   const [playerMaxHP, setPlayerMaxHP] = useState<number>(MAX_HP);
   const [enemyMaxHP, setEnemyMaxHP] = useState<number>(MAX_HP);
-  const enemyDef = pickEnemyByQuery(search);            // ?enemy=E01/E02/E03...
-
+  const enemyDef = React.useMemo(
+    () => pickEnemyByQuery(search),
+    [search.toString()] // 쿼리가 바뀔 때만 다시 계산
+  );
+  
   const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
   const [options, setOptions] = useState<Subject[]>([]);
   const [subject, setSubject] = useState<Subject>('KOR');
@@ -236,20 +239,20 @@ export default function Play() {
     };
   }, [enemyDef]); // 적 교체 시 재계산
 
+  const lastEnemyIdRef = useRef<string | null>(null);
   useEffect(() => {
-    // 적 교체 시 HP 재설정
     const m = Math.round(MAX_HP * (enemyDef.hpMul ?? 1));
     setEnemyMaxHP(m);
-    setEnemyHP(m);
-    // 스프라이트 프리로드
-    (['Move', 'Attack', 'Die', 'Hit'] as const).forEach(state => {
-      const max = stateFrameCount(enemyDef.sprite, state);
-      for (let i = 1; i <= max; i++) {
-        const img = new Image();
-        img.src = enemyFrameUrl(enemyDef.sprite, state, i);
-      }
-    });
-  }, [enemyDef]);
+    if (lastEnemyIdRef.current !== enemyDef.id) {
+      // 진짜로 '다른 적'으로 바뀐 경우에만 풀 HP로 초기화
+      setEnemyHP(m);
+      lastEnemyIdRef.current = enemyDef.id;
+    } else {
+      // 같은 적이면 회복 금지(최대치가 줄었다면 상한만 적용)
+      setEnemyHP(prev => Math.min(prev, m));
+    }
+    // 스프라이트 프리로드 ...
+  }, [enemyDef.id, enemyDef.hpMul]);
 
   const enemyImgUrl = useMemo(() => enemyFrameUrl(enemyDef.sprite, 'Move', 1), [enemyDef]);
 
