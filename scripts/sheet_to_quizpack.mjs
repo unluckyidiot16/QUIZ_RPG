@@ -1,21 +1,26 @@
 #!/usr/bin/env node
 // scripts/sheet_to_quizpack.mjs
-// 목적: Google Sheet 1개 → 단일 JSON 1개 (과목 고정, 분할/zip 생성 없음)
+// 목적: Google Sheet 1개 → 단일 JSON 1개 (과목 고정, 분할 산출물 없음)
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
 // ───────────────────── utils ─────────────────────
-const SUBJECT_CODES = ['KOR','ENG','MATH','SCI','SOC','HIST'] as const;
+const SUBJECT_CODES = Object.freeze(['KOR','ENG','MATH','SCI','SOC','HIST']);
 const toUpper = (v) => String(v ?? '').trim().toUpperCase();
-const asNumber = (v) => (Number.isFinite(+v) ? +v : undefined);
-const asTags = (v) => (Array.isArray(v) ? v.map(String) :
-  (v == null ? undefined : String(v).split(',').map(s=>s.trim()).filter(Boolean)));
+const asNumber = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+const asTags = (v) => {
+  if (v == null) return undefined;
+  if (Array.isArray(v)) return v.map(String);
+  return String(v).split(',').map(s => s.trim()).filter(Boolean);
+};
 
+// PACK_ID → 과목 코드 1:1 매핑
 function packIdToSubject(packIdRaw) {
   const u = toUpper(packIdRaw);
-  // 현재 워크플로 매트릭스와 1:1 (KorPack, EngPack, MathPack, SciPack, SocPack, HistPack)
-  // 필요 시 여기에만 항목 추가하세요. (이 외 추론 없음)
   const MAP = {
     KORPACK: 'KOR',
     ENGPACK: 'ENG',
@@ -43,7 +48,7 @@ async function fetchSheet({ sheetId, sheetName = '' }) {
   const json = JSON.parse(m[1]);
 
   const cols = (json.table?.cols ?? []).map(c => String(c.label || '').trim());
-  const rows = (json.table?.rows ?? []).map(r => (r.c ?? []).map(c => c?.v ?? ''));
+  const rows = (json.table?.rows ?? []).map(r => (r.c ?? []).map(c => (c && 'v' in c) ? c.v : ''));
   return { cols, rows };
 }
 
@@ -64,8 +69,8 @@ function pickField(obj, candidates) {
   return { key: null, val: undefined };
 }
 
-// 1행 → 표준 퀴즈 아이템 (과목은 PACK_ID로 고정 주입)
-function makeNormalizer(fixedSubject /* 'KOR' | ... */) {
+// 1행 → 표준 퀴즈 아이템 (과목은 SUBJECT_CODE로 고정 주입)
+function makeNormalizer(fixedSubject) {
   return function normalizeRow(row, idx) {
     // stem
     const { val: stem } = pickField(row, ['stem','question','문제','질문']);
@@ -80,7 +85,7 @@ function makeNormalizer(fixedSubject /* 'KOR' | ... */) {
     if (choices.length < 2) return null;
 
     // answerKey
-    let { val: ans } = pickField(row, ['answerKey','answer','정답','correct']);
+    let { val: ans }    = pickField(row, ['answerKey','answer','정답','correct']);
     let { val: ansIdx } = pickField(row, ['correctIndex','정답번호']);
     let answerKey = null;
     const s = String(ans ?? '').trim().toUpperCase();
@@ -92,7 +97,7 @@ function makeNormalizer(fixedSubject /* 'KOR' | ... */) {
     }
     if (!answerKey) return null;
 
-    // 나머지 메타
+    // 메타
     const { val: explanation } = pickField(row, ['explanation','exp','해설','풀이']);
     const { val: diff }        = pickField(row, ['difficulty','난이도']);
     const { val: tsec }        = pickField(row, ['timeLimitSec','time','제한시간']);
@@ -104,7 +109,7 @@ function makeNormalizer(fixedSubject /* 'KOR' | ... */) {
       choices,
       answerKey,
       explanation: explanation ? String(explanation) : undefined,
-      subject: fixedSubject || undefined,          // ✅ 시트의 subject 칼럼은 무시하고 고정
+      subject: fixedSubject || undefined,   // ✅ 시트 subject 무시, 고정 주입
       difficulty: asNumber(diff),
       timeLimitSec: asNumber(tsec),
       tags: asTags(tags),
@@ -130,10 +135,10 @@ async function main() {
   const SHEET_NAME = process.env.SHEET_NAME || '';
   if (!SHEET_ID) throw new Error('SHEET_ID env is required');
 
-  // 과목 고정: SUBJECT_CODE가 있으면 우선, 없으면 PACK_ID에서 1:1 매핑
+  // 과목 고정: SUBJECT_CODE 우선, 없으면 PACK_ID로 매핑
   const SUBJECT_CODE = toUpper(process.env.SUBJECT_CODE) || packIdToSubject(process.env.PACK_ID || '');
   if (!SUBJECT_CODES.includes(SUBJECT_CODE)) {
-    throw new Error(`SUBJECT_CODE required (env SUBJECT_CODE=KOR|ENG|MATH|SCI|SOC|HIST or PACK_ID→subject 매핑 실패)`);
+    throw new Error('SUBJECT_CODE required: set env SUBJECT_CODE=KOR|ENG|MATH|SCI|SOC|HIST (or provide PACK_ID that maps 1:1)');
   }
 
   const { cols, rows } = await fetchSheet({ sheetId: SHEET_ID, sheetName: SHEET_NAME });
