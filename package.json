@@ -6,6 +6,7 @@
   "scripts": {
     "prepare": "husky install",
     "typecheck": "tsc -b",
+    "prebuild": "node -r dotenv/config scripts/sheet_to_quizpack.mjs || echo \"[quizpack] skip\"",
     "build": "pnpm -C apps/student build && pnpm -C apps/admin build",
     "dev:student": "pnpm -C apps/student dev",
     "dev:admin": "pnpm -C apps/admin dev",
