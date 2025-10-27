@@ -261,9 +261,13 @@ export default function Play() {
 
   const patParam = search.get('pat') as string | null;
   const asPat = (p: any): p is PatternKey => (p === 'Aggressive' || p === 'Shield' || p === 'Spiky');
-  const pattern: PatternKey = asPat(patParam) ? patParam
-    : asPat((enemyDef as any).pattern) ? (enemyDef as any).pattern
-      : 'Aggressive';
+  const lockPattern = asPat(patParam); // URL로 지정 시 고정
+  const initialPattern: PatternKey =
+    asPat(patParam) ? patParam
+      : asPat((enemyDef as any).pattern) ? (enemyDef as any).pattern
+        : 'Aggressive';
+  const ALL_PATTERNS: PatternKey[] = ['Aggressive','Shield','Spiky'];
+  const patternRef = useRef<PatternKey>(initialPattern);
 
   // 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
   const runToken = useMemo(() => (localStorage.getItem('qd:runToken') ?? 'dev'), []);
@@ -456,8 +460,9 @@ export default function Play() {
     const turn = turnRef.current;
     const rng = rngRef.current;
 
-    const enemyAct = actByPattern(pattern, {rng: () => rng.next(), turn});
-
+    const curPattern = patternRef.current;
+    const enemyAct = actByPattern(curPattern, { rng: () => rng.next(), turn });
+    
     let playerDmgToEnemy = 0;
     let spikeDmgToPlayer = 0;
     if (isCorrect) {
@@ -576,10 +581,15 @@ export default function Play() {
     });
 
     const isBattleEnd = (nextEnemy <= 0 || nextPlayer <= 0);
-    const isLastQuestion = (idx + 1 >= questions.length);
+    const isLastQuestion = false;
     const battleOutcome = nextEnemy <= 0 ? true : (nextPlayer <= 0 ? false : undefined);
     turnRef.current = turn + 1;
 
+    if (!isBattleEnd && !lockPattern) {
+      const k = Math.floor(rng.next() * ALL_PATTERNS.length);
+      patternRef.current = ALL_PATTERNS[k];
+    }
+    
     if (isBattleEnd || isLastQuestion) {
       setMsg(
         battleOutcome === true ? '승리! 결과 정리 중…' :
@@ -805,7 +815,7 @@ export default function Play() {
               const es: Subject = resolveEnemySubject();
               return <> · S:{s}({SUBJECT_TO_COLOR[s]}) vs ES:{es}({SUBJECT_TO_COLOR[es]})</>;
             })()}
-            {' / '}패턴:{pattern} / 턴:{turnRef.current}
+            {' / '}패턴:{patternRef.current} / 턴:{turnRef.current}
           </div>
           <HPBar value={playerHP} max={playerMaxHP} label="Player"/>
           <HPBar value={enemyHP} max={enemyMaxHP} label="Enemy"/>
