@@ -2,11 +2,6 @@ name: Quiz Pack Sync (Sheet → JSON)
 
 on:
   workflow_dispatch:
-    inputs:
-      force:
-        description: "Run even if sheet fetch fails (will still commit if local changes exist)"
-        type: boolean
-        default: false
   schedule:
     # 매일 아침 6시 KST (UTC 21:00)
     - cron: "0 21 * * *"
@@ -24,6 +19,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                 # rebase/pull 위해 전체 히스토리
+          persist-credentials: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -32,33 +30,28 @@ jobs:
 
       - name: Generate quiz JSON from Google Sheet
         env:
-          # ✅ 레포지토리 Settings → Secrets and variables → Actions 에서 설정
+          # ✅ 레포 > Settings > Secrets and variables > Actions 설정
           # Secrets:
-          #   - QUIZ_SHEET_ID      (필수: 구글 시트 ID)
-          # Variables (옵션):
-          #   - QUIZ_SHEET_NAME    (시트 탭명, 비우면 첫 시트)
-          #   - SUBJECT_MODE       (strict | allowGEN, 기본 strict)
-          #   - GEN_MAP_TO         (GEN을 매핑할 과목, 기본 SOC)
-          #   - DIFF_TABLE         ("25,20,15,12,10" 형태, 난이도별 기본 제한 시간)
-          SHEET_ID: ${{ secrets.QUIZ_SHEET_ID }}
+          #   - QUIZ_SHEET_ID      (필수) 구글 시트 ID
+          # Variables:
+          #   - QUIZ_SHEET_NAME    (옵션) 탭명, 비우면 첫 시트
+          #   - QUIZ_OUT_PATH      (옵션) 기본 apps/student/public/packs/sample.json
+          SHEET_ID:   ${{ secrets.QUIZ_SHEET_ID }}
           SHEET_NAME: ${{ vars.QUIZ_SHEET_NAME }}
-          SUBJECT_MODE: ${{ vars.SUBJECT_MODE }}
-          GEN_MAP_TO: ${{ vars.GEN_MAP_TO }}
-          DIFF_TABLE: ${{ vars.DIFF_TABLE }}
-          # 출력 경로: 런타임에서 staticURL('/packs/sample.json')로 읽습니다.
-          OUT_PATH: apps/student/public/packs/sample.json
-          # 선택: 실패 시에도 커밋은 시도할지
-          FORCE: ${{ github.event.inputs.force || 'false' }}
+          OUT_PATH:   ${{ vars.QUIZ_OUT_PATH }}
         run: node scripts/sheet_to_quizpack.mjs
 
-      - name: Commit & Push (if changed)
+      - name: Commit & Push (rebase if remote changed)
+        env:
+          BRANCH: ${{ github.ref_name || 'main' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to commit."
-          else
-            git commit -m "chore(quiz-pack): update from Google Sheet"
-            git push
+            exit 0
           fi
+          git commit -m "chore(quiz-pack): update from Google Sheet"
+          git pull --rebase origin "${BRANCH}"
+          git push origin "${BRANCH}"
