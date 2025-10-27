@@ -153,7 +153,7 @@ export default function Play() {
   const [shake, setShake] = useState(false);
   const [pops, setPops] = useState<Array<{ id: number; val: number }>>([]);
   const popIdRef = useRef(0);
-  type TagLabel = 'WEAK!' | 'RESIST!' | 'SHIELD';
+  type TagLabel = 'WEAK!' | 'RESIST!' | 'SHIELD!' | 'SPIKE!';
   const [tag, setTag] = useState<TagLabel | null>(null);
   const tagTimerRef = useRef<number | undefined>(undefined);
   const [hitBorder, setHitBorder] = useState<null | 'inner' | 'outer'>(null);
@@ -506,9 +506,9 @@ export default function Play() {
 
       playerDmgToEnemy = applyShieldToDamage(raw, enemyAct.shieldActive);
       if (enemyAct.spikeOnHit && patternRef.current === 'Spiky') {spikeDmgToPlayer = enemyAct.spikeOnHit;}
-      let tagLabel: 'WEAK!' | 'RESIST!' | 'SHIELD' | 'SPIKE!' | null = null;
+      let tagLabel: 'WEAK!' | 'RESIST!' | 'SHIELD!' | 'SPIKE!' | null = null;
       if (enemyAct.shieldActive) {
-        tagLabel = 'SHIELD';
+        tagLabel = 'SHIELD!';
       } else {
         if (baseATK > 0) {
           const eff = raw / baseATK;
