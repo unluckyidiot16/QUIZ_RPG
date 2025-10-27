@@ -5,7 +5,7 @@ import { appPath } from '../shared/lib/urls';
 import type { Stats, Subject } from '../core/char.types';
 import { SUBJECTS, subjectLabel } from '../core/char.types';
 import { makeServices } from '../core/service.locator';
-
+import { makeRng } from '../shared/lib/rng';
 
 const QUIZ_XP_PER_POINT = 10; // Confirm과 동일 값 유지
 const TOTAL = 10;             // 총 10문항
@@ -33,6 +33,10 @@ type Question = {
   timeLimitSec?: number;
   tags?: string[];
 };
+
+// 재현성 불필요: 시간 기반 RNG
+const rngRef = useRef(makeRng(String(Date.now()))); 
+const nextRand = () => rngRef.current?.next?.() ?? Math.random();
 
 function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
   if (typeof answerKey === 'string' && /^[ABCD]$/.test(answerKey)) return answerKey as any;
@@ -165,10 +169,10 @@ export default function CreateQuiz(){
 
       // 셔플 후 픽
       for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(nextRand() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
-      const picked = pool[Math.floor(Math.random() * pool.length)] || null;
+      const picked = pool[Math.floor(nextRand() * pool.length)] || null;
 
       if (!picked) { setMsg('문항을 찾지 못했습니다.'); return; }
 

@@ -269,10 +269,12 @@ export default function Play() {
   const ALL_PATTERNS: PatternKey[] = ['Aggressive','Shield','Spiky'];
   const patternRef = useRef<PatternKey>(initialPattern);
 
-  // 결정론 RNG: runToken(혹은 roomId+studentId 등)으로 시드 고정
-  const [runSeed, setRunSeed] = useState<string | null>(null);
-  const rngRef = useRef<ReturnType<typeof makeRng> | null>(null);
+// 재현성 불필요: 시간 기반 시드로 고정
+  const [runSeed] = useState<string>(() => String(Date.now()));
+  const rngRef = useRef<ReturnType<typeof makeRng>>(makeRng(runSeed));
   const turnRef = useRef(1);
+
+  const nextRand = () => rngRef.current?.next?.() ?? Math.random();
 
   // 간단 HP Bar(임시)
   const HPBar = ({value, max, label}: { value: number; max: number; label: string }) => {
@@ -301,11 +303,10 @@ export default function Play() {
         }
 
         const ensure = (api as any).ensureRunToken || (api as any).newRunToken || (api as any).enterDungeon;
-        if (typeof ensure === 'function') await ensure();
-        // 🔑 런 토큰 발급이 끝난 "후"에 시드/ RNG 초기화
-        const tok = localStorage.getItem('qd:runToken') || crypto.randomUUID();
-        setRunSeed(tok);
-        rngRef.current = makeRng(tok);
+        // 서버 개입 최소화: 실패하더라도 진행
+        try { if (typeof ensure === 'function') await ensure(); }
+        catch (e) { console.debug('ensureRunToken failed (ignored):', e); }
+        // RNG는 이미 시간 시드로 초기화됨
 
         // Proof (있으면 사용, 없어도 진행)
         try {
@@ -323,8 +324,8 @@ export default function Play() {
 
         setMsg('준비 완료!');
       } catch (e: any) {
-        console.warn('Play init failed', e);
-        setMsg(e?.message ?? '접속 권한이 없거나 만료되었습니다.');
+        // 초기화 중 비치명적 실패는 UI에 노출하지 않음
+        console.warn('Play init non-fatal error (continue):', e);
       } finally {
         setLoading(false);
       }
@@ -407,8 +408,10 @@ export default function Play() {
   }, []);
 
   useEffect(()=> {
-    if (!runSeed) return; // 시드 준비 전이면 기다림
-    const opts = selectSubjectsForTurn(stage, turnRef.current, runSeed);
+    const t = turnRef.current;
+    // 시간 시드 + 턴 + 한 번 더 섞기(충돌 방지)
+    const seedForTurn = `${runSeed}:${t}:${Math.floor(nextRand() * 1e9)}`;
+    const opts = selectSubjectsForTurn(stage, t, seedForTurn);
     setOptions(opts);
     setPhase('pick');
     }, [stage, idx, runSeed]);
@@ -418,8 +421,8 @@ export default function Play() {
 
     try {
       const bank = await ensureSubjectLoaded(s);
-      const rng = rngRef.current ?? { next: Math.random };
-
+      const rng = { next: nextRand };
+      
       // 중복 회피
       const pool = bank.filter(q => !usedIds.has(q.id));
       const cand = pool.length ? pool : bank; // 전부 썼으면 재사용 허용
