@@ -1,5 +1,5 @@
 // Stage 정의 & 런타임 유틸
-import { type Subject } from '../game/combat/affinity';
+import { type Subject } from '../core/char.types';
 import type { DropTable } from './loot';
 
 export type StageDef = {
