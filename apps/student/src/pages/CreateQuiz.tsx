@@ -1,145 +1,217 @@
 // src/pages/CreateQuiz.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appPath } from '../shared/lib/urls';
 import type { Stats, Subject } from '../core/char.types';
 import { SUBJECTS, subjectLabel } from '../core/char.types';
-
 import { makeServices } from '../core/service.locator';
 
-const QUIZ_XP_PER_POINT = 10; // ✅ Confirm과 동일 값 유지
+const QUIZ_XP_PER_POINT = 10; // Confirm과 동일 값 유지
+const TOTAL = 10;             // 총 10문항
 
-// 문제팩 URL 생성 (Play.tsx와 동일 로직 축약)
-function resolvePackUrl(pack: string) {
-    const base = import.meta.env.BASE_URL || '/';
-    const url = new URL(base, window.location.origin);
-    url.pathname = url.pathname.replace(/\/$/, '') + `/packs/${pack}.json`;
-    return url.toString();
-  }
+// 과목 → 팩 파일명 매핑 (실제 생성된 파일명에 맞춰 필요 시 수정)
+const SUBJECT_PACK: Record<Subject, string> = {
+  KOR: 'KorPack',
+  ENG: 'EngPack',
+  MATH: 'MathPack',
+  SCI: 'SciPack',
+  SOC: 'SocPack',
+  HIST: 'HistPack',
+};
 
+// ---------- 공통 정규화 유틸 ----------
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
-type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
+type Question = {
+  id: string;
+  stem: string;
+  choices: Choice[];
+  answerKey: Choice['key'];
+  explanation?: string;
+  subject?: Subject | 'GEN';
+  difficulty?: number;
+  timeLimitSec?: number;
+  tags?: string[];
+};
 
-  function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
-      if (typeof answerKey === 'string' && /^[ABCD]$/.test(answerKey)) return answerKey as any;
-      if (typeof answer === 'string' && /^[ABCD]$/.test(answer)) return answer as any;
-      const idx = (typeof correctIndex === 'number' ? correctIndex
-          : typeof answer === 'number' ? answer
-          : typeof answerKey === 'number' ? answerKey
-          : -1);
-      if (idx >= 0 && idx <= 3) return (['A','B','C','D'] as const)[idx];
-      return null;
-    }
+function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
+  if (typeof answerKey === 'string' && /^[ABCD]$/.test(answerKey)) return answerKey as any;
+  if (typeof answer === 'string' && /^[ABCD]$/.test(answer)) return answer as any;
+  const idx = (typeof correctIndex === 'number' ? correctIndex
+    : typeof answer === 'number' ? answer
+      : typeof answerKey === 'number' ? answerKey
+        : -1);
+  if (idx >= 0 && idx <= 3) return (['A','B','C','D'] as const)[idx];
+  if (idx >= 1 && idx <= 4) return (['A','B','C','D'] as const)[idx-1];
+  return null;
+}
+
 function normalizeQuestion(raw: any, i: number): Question | null {
-    if (!raw) return null;
-    const keys = ['A','B','C','D'] as const;
-    if (raw.stem && Array.isArray(raw.choices)) {
-        const normChoices: Choice[] = (raw.choices as any[]).slice(0,4).map((t,idx)=>({ key: keys[idx], text: typeof t==='string'?t:(t?.text??String(t)) }));
-        const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
-        return ans ? { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans, explanation: raw.explanation } : null;
-      }
-    if (raw.stem && Array.isArray(raw.options)) {
-        const normChoices: Choice[] = (raw.options as any[]).slice(0,4).map((t,idx)=>({ key: keys[idx], text: typeof t==='string'?t:(t?.text??String(t)) }));
-        const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
-        return ans ? { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans } : null;
-      }
-    if (raw.stem && (raw.A || raw.B || raw.C || raw.D)) {
-        const normChoices: Choice[] = keys.filter(k=>raw[k]!=null).map(k=>({ key: k, text: String(raw[k]) }));
-        const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
-        return ans ? { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans } : null;
-      }
-    return null;
+  if (!raw) return null;
+  const keys = ['A','B','C','D'] as const;
+
+  // 1) { stem, choices[] }
+  if (raw.stem && Array.isArray(raw.choices)) {
+    const normChoices: Choice[] = (raw.choices as any[]).slice(0,4).map((t,idx)=>({
+      key: keys[idx],
+      text: typeof t==='string' ? t : (t?.text ?? String(t))
+    }));
+    const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
+    if (!ans) return null;
+    return {
+      id: String(raw.id ?? i),
+      stem: String(raw.stem),
+      choices: normChoices,
+      answerKey: ans,
+      explanation: typeof raw.explanation === 'string' ? raw.explanation : undefined,
+      subject: typeof raw.subject === 'string' ? (raw.subject.toUpperCase() as Subject) : undefined,
+      difficulty: Number.isFinite(+raw.difficulty) ? +raw.difficulty : undefined,
+      timeLimitSec: Number.isFinite(+raw.timeLimitSec) ? +raw.timeLimitSec : undefined,
+      tags: Array.isArray(raw.tags) ? raw.tags.map(String) : undefined,
+    };
   }
+
+  // 2) { stem, options[] }
+  if (raw.stem && Array.isArray(raw.options)) {
+    const normChoices: Choice[] = (raw.options as any[]).slice(0,4).map((t,idx)=>({
+      key: keys[idx],
+      text: typeof t==='string' ? t : (t?.text ?? String(t))
+    }));
+    const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
+    if (!ans) return null;
+    return { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans };
+  }
+
+  // 3) { stem, A/B/C/D }
+  if (raw.stem && (raw.A || raw.B || raw.C || raw.D)) {
+    const normChoices: Choice[] = keys.filter(k=>raw[k]!=null).map(k=>({ key: k, text: String(raw[k]) }));
+    const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
+    if (!ans) return null;
+    return { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans };
+  }
+
+  return null;
+}
+
+// ---------- 페이지 컴포넌트 ----------
 export default function CreateQuiz(){
   const nav = useNavigate();
+
+  // 진행/점수
   const [idx, setIdx] = useState(0);
   const [earned, setEarned] = useState<Stats>({KOR:0,ENG:0,MATH:0,SCI:0,SOC:0,HIST:0});
-  const progress = Math.round((idx/10)*100);
+  const progress = Math.round((idx / TOTAL) * 100);
+
+  // 상태
   const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
   const [currentSubj, setCurrentSubj] = useState<Subject | null>(null);
   const [currentQ, setCurrentQ] = useState<Question | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string>('');
-  const pack = 'sample';
 
+  // 인벤토리 프리뷰
   const { inv } = useMemo(() => makeServices(), []);
   const [invState, setInvState] = useState<any>(null);
   useEffect(()=>{ (async()=> setInvState(await inv.load()))(); }, [inv]);
   const previewEquipped = invState?.equipped || {};
 
-  // ── 문제팩 로드 & 과목별 큐 구성 ──
-  const [bySubj, setBySubj] = useState<Record<Subject, Question[]>>({KOR:[],ENG:[],MATH:[],SCI:[],SOC:[],HIST:[]});
-  const [pool, setPool] = useState<Question[]>([]);
-  const [used, setUsed] = useState<Set<string>>(new Set());
-  useEffect(()=> {
-    const ac = new AbortController();
-    (async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(resolvePackUrl(pack), { cache:'reload', signal: ac.signal });
-        let rawList: any = [];
-        if (res.ok) rawList = await res.json(); else rawList = [{ id:'init', stem:'샘플: A를 고르세요', choices:['A','B','C','D'], answerKey:'A' }];
-        const arr = Array.isArray(rawList) ? rawList : (rawList?.questions ?? rawList?.items ?? rawList?.data?.questions ?? []);
-        const clean: Question[] = [];
-        arr.forEach((raw:any, i:number) => { const nq = normalizeQuestion(raw, i); if (nq) clean.push(nq); });
-        // 과목 추출(가능하면), 없으면 분류하지 않고 풀(pool)에 남김
-        const map: Record<Subject, Question[]> = {KOR:[],ENG:[],MATH:[],SCI:[],SOC:[],HIST:[]};
-        const korMap: Record<string, Subject> = { '국어':'KOR','영어':'ENG','수학':'MATH','과학':'SCI','사회':'SOC','역사':'HIST' };
-        for (const q of clean){
-          const sRaw = (arr[q.id as any]?.subject ?? arr[q.id as any]?.subj ?? arr[q.id as any]?.category ?? arr[q.id as any]?.tag ?? arr[q.id as any]?.tags) as any;
-          const toCode = (v:string): Subject | null => {
-            const up = (v||'').toString().toUpperCase();
-            if ((SUBJECTS as readonly string[]).includes(up)) return up as Subject;
-            const ko = korMap[v as string]; return ko ?? null;
-          };
-          let code: Subject | null = null;
-          if (typeof sRaw === 'string') code = toCode(sRaw);
-          else if (Array.isArray(sRaw)) code = (sRaw.map(x=>toCode(x)).find(Boolean) as Subject | undefined) ?? null;
-          if (code) map[code].push(q);
-        }
-        setBySubj(map);
-        setPool(clean);
-        setUsed(new Set());
-      } catch (e:any){
-        setMsg(e?.message ?? '팩 로드 실패');
-      } finally {
-        if (!ac.signal.aborted) setLoading(false);
-      }
-    })();
-    return () => ac.abort();
-    }, []);
-  
-  // 과목 클릭 → 해당 과목 문제 선택
-  function chooseSubject(s: Subject){
-    setCurrentSubj(s);
-    // 미사용 문제 우선, 없으면 전체 풀에서 미사용 1개
-    const list = bySubj[s];
-    const cand = (list?.find(q => !used.has(q.id))) || (pool.find(q => !used.has(q.id)));
-    if (!cand) { setMsg('더 이상 선택할 문항이 없습니다.'); return; }
-    setCurrentQ(cand);
-    setPhase('quiz');
+  // 과목별 뱅크 캐시/중복관리
+  const subjectBankRef = useRef<Partial<Record<Subject, Question[]>>>({});
+  const [subjectBank, setSubjectBank] = useState<Partial<Record<Subject, Question[]>>>({});
+  const usedBySubjectRef = useRef<Partial<Record<Subject, Set<string>>>>({});
+  const [usedGlobal, setUsedGlobal] = useState<Set<string>>(new Set());
+
+  // 과목 단일 JSON 로더 (최초 1회만 fetch → 캐시)
+  async function ensureSubjectLoaded(s: Subject) {
+    if (subjectBankRef.current[s]?.length) return subjectBankRef.current[s]!;
+    setLoading(true);
+    try {
+      const packId = SUBJECT_PACK[s];
+      const url = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '') + `/packs/${packId}.json`;
+      const res = await fetch(url, { cache: 'reload' });
+      if (!res.ok) throw new Error(`load failed: ${url} (${res.status})`);
+      const raw = await res.json();
+      const arr = Array.isArray(raw) ? raw : (raw?.questions ?? raw?.items ?? raw?.data?.questions ?? []);
+      const clean: Question[] = [];
+      arr.forEach((r: any, i: number) => {
+        const q = normalizeQuestion(r, i);
+        if (q && q.choices?.length >= 2) clean.push(q);
+      });
+
+      // 안전: 과목 필터(파일이 해당 과목 전용이더라도 필터를 한 번 거침)
+      const onlyThis = clean.filter(q => String(q.subject ?? '').toUpperCase() === s || !q.subject);
+      subjectBankRef.current[s] = onlyThis;
+      setSubjectBank(prev => ({ ...prev, [s]: onlyThis }));
+      return onlyThis;
+    } finally {
+      setLoading(false);
+    }
   }
-  
+
+  // 과목 선택 → 문제 1개 랜덤 픽(중복 회피)
+  async function chooseSubject(s: Subject){
+    setMsg('');
+    setCurrentSubj(s);
+    setPhase('pick'); // 안전: 잠깐 유지
+    try {
+      const bank = await ensureSubjectLoaded(s);
+      if (!bank.length) { setMsg('해당 과목에 사용 가능한 문항이 없습니다.'); return; }
+
+      // 중복 회피: 과목 내 우선, 전부 사용했으면 과목 내 재사용 허용(글로벌 중복만 회피)
+      const usedS = (usedBySubjectRef.current[s] ||= new Set<string>());
+      let pool = bank.filter(q => !usedS.has(q.id) && !usedGlobal.has(q.id));
+      if (!pool.length) pool = bank.filter(q => !usedGlobal.has(q.id));
+      if (!pool.length) pool = bank.slice(); // 정말 없으면 과목 내 재사용
+
+      // 셔플 후 픽
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      const picked = pool[Math.floor(Math.random() * pool.length)] || null;
+
+      if (!picked) { setMsg('문항을 찾지 못했습니다.'); return; }
+
+      setCurrentQ(picked);
+      setPhase('quiz');
+    } catch (e: any) {
+      setMsg(e?.message ?? '팩 로드 실패');
+    }
+  }
+
+  // 답변 처리
   function onAnswer(pick: Choice['key']){
     if (!currentQ || !currentSubj) return;
     const correct = (pick === currentQ.answerKey);
-    const nextEarned = correct ? { ...earned, [currentSubj]: earned[currentSubj] + 1 } : earned;
+
+    // 점수 반영
+    if (correct) {
+      setEarned(prev => ({ ...prev, [currentSubj]: prev[currentSubj] + 1 }));
+    }
+
+    // 사용 처리(과목/글로벌)
+    setUsedGlobal(prev => {
+      const next = new Set(prev); next.add(currentQ.id); return next;
+    });
+    (usedBySubjectRef.current[currentSubj] ||= new Set<string>()).add(currentQ.id);
+
+    // 다음 턴 세팅
     const next = idx + 1;
-    setEarned(nextEarned);
-    setUsed(prev => new Set(prev).add(currentQ.id));
     setCurrentQ(null);
     setCurrentSubj(null);
-    setPhase('pick');
-    if (next >= 10) {
-      nav(appPath('/create/confirm'), { replace:true, state:{ earned: nextEarned } });
-    } else {
-      setIdx(next);
+
+    if (next >= TOTAL) {
+      // 완료 → 확인 화면
+      nav(appPath('/create/confirm'), { replace: true, state: { earned: { ...earned, [currentSubj]: (correct ? earned[currentSubj]+1 : earned[currentSubj]) } } });
+      return;
     }
+
+    setIdx(next);
+    setPhase('pick'); // 다음 과목 선택으로 복귀
   }
 
   const label = subjectLabel;
 
-  // ── 미니 레이더(Status.tsx의 Radar6를 축약 복사) ──
+  // ── 미니 레이더 ──
   function MiniRadar6({ values, labels }:{ values:number[]; labels:string[] }){
     const max = Math.max(1, ...values);
     const norm = values.map(v=> v/max);
@@ -162,18 +234,18 @@ export default function CreateQuiz(){
         {[0.33,0.66,1].map((p,idx)=> (<polygon key={idx} points={ring(p)} fill="none" stroke="currentColor" opacity="0.2" />))}
         {angles.map((a,i)=> (<line key={i} x1={center} y1={center} x2={center+R*Math.cos(a)} y2={center+R*Math.sin(a)} stroke="currentColor" opacity="0.35" />))}
         <polygon points={pts} fill="currentColor" opacity="0.4" />
-        {angles.map((a,i)=> (<text key={i} x={center+(R+8)*Math.cos(a)} y={center+(R+8)*Math.sin(a)} textAnchor="middle" dominantBaseline="middle" fontSize="9">{labels[i]}</text>))}
+        {angles.map((a,i)=> (<text key={i} x={center+(R+8)**Math.cos(a)} y={center+(R+8)*Math.sin(a)} textAnchor="middle" dominantBaseline="middle" fontSize="9">{labels[i]}</text>))}
       </svg>
     );
   }
-  // ── 미니 캐릭터 프리뷰(옷장 Wardrobe.tsx 프리뷰를 경량화) ──
+
+  // ── 미니 캐릭터 프리뷰 ──
   function MiniPreview({ equipped }:{ equipped: Record<string,string> }){
-    // Wardrobe.tsx의 프리뷰 로직을 간소화하여 사용 (고정 캔버스)
     const Z: Record<string, number> = { Body:0, BodySuit:5, Pants:10, Shoes:15, Clothes:20, Sleeves:25, Bag:30, Necklace:40, Scarf:45, Bowtie:50, Face:55, Hair:60, Hat:70 };
     const SLOTS = ['Body','BodySuit','Pants','Shoes','Clothes','Sleeves','Bag','Necklace','Scarf','Bowtie','Face','Hair','Hat'];
     const __prefix = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
     const norm = (src?: string) => !src ? undefined : /^https?:\/\//.test(src) ? src : (src.startsWith("/") ? `${__prefix}${src}` : `${__prefix}/${src}`);
-    // 간단 카탈로그(필요 시 service.locator로 치환 가능)
+
     const [catalog, setCatalog] = useState<Record<string, any>>({});
     useEffect(()=>{ (async()=>{
       try{
@@ -210,6 +282,7 @@ export default function CreateQuiz(){
   }
 
   if (loading) return <div className="p-6">로딩 중…</div>;
+
   return (
     <div className="max-w-5xl mx-auto p-6">
       <h1 className="text-2xl font-bold">캐릭터 생성: 과목 퀴즈 (10문항)</h1>
@@ -218,14 +291,14 @@ export default function CreateQuiz(){
         <div className="h-2 rounded bg-white/10 overflow-hidden">
           <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
         </div>
-        <div className="mt-2 text-sm opacity-80">{idx+1}/10</div>
+        <div className="mt-2 text-sm opacity-80">{idx+1}/{TOTAL}</div>
       </div>
 
       {/* 현재 과목 표시는 퀴즈 단계에서만 */}
       <div className="mt-4 flex items-center gap-2">
         <span className="text-sm opacity-70">현재 과목:</span>
         <span className="px-2 py-1 rounded bg-indigo-600/30 border border-indigo-400/50">
-          {phase === 'quiz' && currentSubj ? label(currentSubj) : '과목 선택'}
+          {phase === 'quiz' && currentSubj ? subjectLabel(currentSubj) : '과목 선택'}
         </span>
       </div>
 
@@ -239,17 +312,18 @@ export default function CreateQuiz(){
           <div className="grid grid-cols-2 gap-4 items-center">
             <MiniRadar6
               values={[earned.KOR,earned.ENG,earned.MATH,earned.SCI,earned.SOC,earned.HIST]}
-              labels={[label('KOR'),label('ENG'),label('MATH'),label('SCI'),label('SOC'),label('HIST')]}
+              labels={[subjectLabel('KOR'),subjectLabel('ENG'),subjectLabel('MATH'),subjectLabel('SCI'),subjectLabel('SOC'),subjectLabel('HIST')]}
             />
             <ul className="text-sm grid grid-cols-2 gap-2">
               {SUBJECTS.map(s => (
                 <li key={s} className="p-2 rounded bg-black/20 border border-white/10 flex items-center justify-between">
-                  <span>{label(s)}</span>
+                  <span>{subjectLabel(s)}</span>
                   <b>+{earned[s]} pt / +{earned[s]*QUIZ_XP_PER_POINT} XP</b>
                 </li>
               ))}
             </ul>
           </div>
+
           {/* 과목 선택/문제 영역 */}
           {phase === 'pick' ? (
             <div className="mt-4 p-4 rounded-lg bg-slate-900/50">
@@ -258,7 +332,7 @@ export default function CreateQuiz(){
                 {SUBJECTS.map(s => (
                   <button key={s} className="px-3 py-2 rounded bg-slate-800 hover:bg-slate-700 transition"
                           onClick={()=>chooseSubject(s)}>
-                    {label(s)}
+                    {subjectLabel(s)}
                   </button>
                 ))}
               </div>
@@ -266,19 +340,19 @@ export default function CreateQuiz(){
             </div>
           ) : (
             <div className="mt-4 p-4 rounded-lg bg-slate-900/50">
-              <div className="text-sm opacity-80 mb-2">현재 과목: <b>{currentSubj ? label(currentSubj) : '-'}</b></div>
+              <div className="text-sm opacity-80 mb-2">현재 과목: <b>{currentSubj ? subjectLabel(currentSubj) : '-'}</b></div>
               {currentQ ? (
                 <>
-                <div className="font-medium whitespace-pre-wrap">{currentQ.stem}</div>
-                <div className="grid gap-2 mt-3">
-                  {currentQ.choices.map((c: Choice) => (
-                    <button key={c.key}
-                            className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
-                            onClick={()=>onAnswer(c.key)}>
-                      <span className="font-bold mr-2">{c.key}.</span>{c.text}
-                    </button>
-                  ))}
-                </div>
+                  <div className="font-medium whitespace-pre-wrap">{currentQ.stem}</div>
+                  <div className="grid gap-2 mt-3">
+                    {currentQ.choices.map((c: Choice) => (
+                      <button key={c.key}
+                              className="text-left px-3 py-2 rounded bg-slate-700 hover:bg-slate-600 transition"
+                              onClick={()=>onAnswer(c.key)}>
+                        <span className="font-bold mr-2">{c.key}.</span>{c.text}
+                      </button>
+                    ))}
+                  </div>
                 </>
               ) : (
                 <div className="text-sm text-rose-300">문항을 찾을 수 없습니다.</div>
