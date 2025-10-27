@@ -1,4 +1,4 @@
-// Stage 정의 & 런타임 유틸
+// Stage.ts 정의 & 런타임 유틸
 import { SUBJECTS, isSubject, type Subject } from '../core/char.types';
 import type { DropTable } from './loot';
 

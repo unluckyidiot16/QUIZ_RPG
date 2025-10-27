@@ -13,7 +13,7 @@ import type { EnemyAction } from '../game/combat/patterns';
 import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../core/affinity';
 import { loadPlayer, loadItemDB, deriveBattleStats, grantSubjectXp, savePlayer } from '../core/player';
 import { SUBJECTS, type Subject } from '../core/char.types';
-import { buildQuestionPools, pickQuestionForSubject, type QuizItem } from '../game/quiz/picker';
+import type { QuizItem } from '../game/quiz/picker';
 import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
 import { staticURL, appPath } from '../shared/lib/urls';
@@ -33,6 +33,21 @@ type Question = {
   tags?: string[];
 };
 
+// 과목별 뱅크(캐시)
+const subjectBankRef = useRef<Partial<Record<Subject, QuizItem[]>>>({});
+const [subjectBank, setSubjectBank] = useState<Partial<Record<Subject, QuizItem[]>>>({});
+const [usedIds, setUsedIds] = useState<Set<string>>(new Set()); // 중복 회피
+
+
+const SUBJECT_PACK: Record<Subject, string> = {
+  KOR: 'KorPack',
+  ENG: 'EngPack',
+  MATH: 'MathPack',
+  SCI: 'SciPack',
+  SOC: 'SocPack',
+  HIST: 'HistPack',
+};
+
 type Turn = { id: string; pick: Choice['key']; correct: boolean };
 
 type TurnLog = {
@@ -49,9 +64,13 @@ type TurnLog = {
   enemySubject?: Subject;
 };
 
-function usePackParam() {
-  const qs = new URLSearchParams(location.search);
-  return qs.get('pack') || 'sample';
+function resolvePackId(search: URLSearchParams) {
+  // 1) URL 쿼리 우선
+  const p = search.get('pack');
+  if (p) return p;
+  // 2) 스테이지 기본값
+  const st = getStageFromQuery(search);
+  return st.packId || 'sample';
 }
 
 function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
@@ -126,12 +145,12 @@ function normalizeQuestion(raw: any, i: number): Question | null {
 }
 
 export default function Play() {
-  const pack = usePackParam();
   const nav = useNavigate();
 
   const location = useLocation();
   const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const stage = useMemo(() => getStageFromQuery(search), [search]);
+  const pack   = useMemo(() => resolvePackId(search), [search]);
+  const stage  = useMemo(() => getStageFromQuery(search), [search]);
   const [enemyState, setEnemyState] = useState<EnemyState>('Move');
   const attackTimerRef = useRef<number | null>(null);
   const hitTimerRef = useRef<number | null>(null);
@@ -307,48 +326,29 @@ export default function Play() {
     })();
   }, [pack]);
 
-  // 2) 팩 로드(+정규화)
-  useEffect(() => {
-    const ac = new AbortController();
-    (async () => {
-      try {
-        setLoading(true);
-        // pack 쿼리(param)로 선택된 팩을 불러옵니다. (예: /packs/sample.json)
-        const path = `/packs/${pack.endsWith('.json') ? pack : `${pack}.json`}`;
-        const url  = staticURL(path);
-        const res  = await fetch(url, { cache: 'reload', signal: ac.signal });
-        let rawList: any = [];
-        if (res.ok) rawList = await res.json();
-        else rawList = [{id: 'sample-1', stem: '샘플 문항입니다. A를 선택하세요.', choices: ['A', 'B', 'C', 'D'], answerKey: 'A'}];
+  async function ensureSubjectLoaded(s: Subject) {
+    if (subjectBankRef.current[s]?.length) return subjectBankRef.current[s]!;
+    const packId = SUBJECT_PACK[s];
+    const url = staticURL(`/packs/${packId}.json`);
+    const res = await fetch(url, { cache: 'reload' });
+    if (!res.ok) throw new Error(`load failed: ${url} (${res.status})`);
 
-        const arr = Array.isArray(rawList)
-          ? rawList
-          : (rawList?.questions ?? rawList?.items ?? rawList?.data?.questions ?? []);
+    const raw = await res.json();
+    const arr = Array.isArray(raw) ? raw : (raw?.questions ?? raw?.items ?? raw?.data?.questions ?? []);
+    const clean: QuizItem[] = [];
+    arr.forEach((r: any, i: number) => {
+      const q = normalizeQuestion(r, i);
+      if (q && q.choices?.length >= 2) clean.push(q as unknown as QuizItem);
+    });
 
-        const clean: Question[] = [];
-        const invalids: Array<{ i: number; raw: any }> = [];
-        arr.forEach((raw: any, i: number) => {
-          const nq = normalizeQuestion(raw, i);
-          if (nq && nq.stem && Array.isArray(nq.choices) && nq.choices.length >= 2) clean.push(nq);
-          else invalids.push({i, raw});
-        });
+    // 안전: subject 필터(섞여 들어와도 해당 과목만)
+    const onlyThis = clean.filter(q => String(q.subject ?? '').toUpperCase() === s);
 
-        setQuestions(clean as unknown as QuizItem[]);
-        setQpools(buildQuestionPools(clean as unknown as QuizItem[], SUBJECTS));
-        setIdx(0);
-        if (invalids.length) console.warn(`[PACK:${pack}] 무시된 비정상 문항 ${invalids.length}개`, invalids.slice(0, 5));
-      } catch (e) {
-        if (!ac.signal.aborted) {
-          console.warn('pack load failed', e);
-          setQuestions([]);
-          setMsg('팩 로딩 실패');
-        }
-      } finally {
-        if (!ac.signal.aborted) setLoading(false);
-      }
-    })();
-    return () => ac.abort();
-  }, [pack]);
+    subjectBankRef.current[s] = onlyThis;
+    setSubjectBank(prev => ({ ...prev, [s]: onlyThis }));
+    return onlyThis;
+  }
+
 
   // 3) 문항 표출: 시간 기록 + (옵션)카운트다운 시작
   useEffect(() => {
@@ -408,28 +408,48 @@ export default function Play() {
     setPhase('pick');
   }, [stage, idx]); // 매 문제(or 라운드) 시작마다 갱신
 
-  function chooseSubject(s: Subject){
+  async function chooseSubject(s: Subject){
     setSubject(s);
-    if (qpools) {
-      const p = loadPlayer();
-      const lv = (p as any)?.base?.subLevels?.[s]?.lv ?? 0;
-      const qNew = pickQuestionForSubject(s, qpools, {
-        level: lv,
-        avoidIds: usedIds,
-        rng: () => rngRef.current.next(),   // 결정론 RNG 주입
-        // diffSelector: ({level}) => Math.min(5, Math.max(1, Math.round(1 + level/5))),
-      });
-      if (qNew) {
-        setUsedIds(prev => new Set(prev).add(qNew.id));
-        setQuestions(prev => {
-          const next = [...prev];
-          next[idx] = qNew; // 현재 슬롯을 과목 맞춘 문항으로 교체
+
+    try {
+      const bank = await ensureSubjectLoaded(s);
+      const rng = rngRef.current;
+
+      // 중복 회피
+      const pool = bank.filter(q => !usedIds.has(q.id));
+      const cand = pool.length ? pool : bank; // 전부 썼으면 재사용 허용
+
+      // 셔플 한 번 후 픽
+      for (let i = cand.length - 1; i > 0; i--) {
+        const j = Math.floor(rng.next() * (i + 1));
+        [cand[i], cand[j]] = [cand[j], cand[i]];
+      }
+      const picked = cand[Math.floor(rng.next() * cand.length)] || null;
+
+      if (picked) {
+        setUsedIds(prev => {
+          const next = new Set(prev);
+          next.add(picked.id);
           return next;
         });
+        setQuestions(prev => {
+          const next = [...prev];
+          next[idx] = picked;           // 현재 슬롯에 주입
+          return next;
+        });
+        setPhase('quiz');
+        return;
       }
+
+      setMsg('해당 과목 문제를 찾을 수 없습니다.');
+      setPhase('pick');
+    } catch (e) {
+      console.warn('[chooseSubject] load failed', e);
+      setMsg('팩 로딩 실패');
+      setPhase('pick');
     }
-    setPhase('quiz');
   }
+
 
   // 5) 답안 처리
   async function onPick(pick: Choice['key']) {
@@ -669,8 +689,9 @@ export default function Play() {
 
   // ───────────── 렌더 ─────────────
   if (loading) return <div className="p-6">로딩…</div>;
-  if (!q) return <div className="p-6">문항이 없습니다. <span className="text-rose-400 ml-2">{msg}</span></div>;
-
+  if (phase === 'quiz' && !q) {
+    return <div className="p-6">문항이 없습니다. <span className="text-rose-400 ml-2">{msg}</span></div>;
+  }
   const total = Math.max(1, questions.length);
   const progress = Math.round(((Math.min(idx, total - 1) + 1) / total) * 100);
 
