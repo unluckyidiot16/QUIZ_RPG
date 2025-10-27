@@ -15,6 +15,7 @@
     "sri:student": "DIST_DIR=apps/student/dist tsx scripts/postbuild-sri.mjs",
     "manifest:admin": "DIST_DIR=apps/admin/dist tsx scripts/build-manifest.mjs",
     "sri:admin": "DIST_DIR=apps/admin/dist tsx scripts/postbuild-sri.mjs",
+    "build:quizpack": "node -r dotenv/config scripts/sheet_to_quizpack.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.16",
