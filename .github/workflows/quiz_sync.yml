@@ -19,12 +19,12 @@ jobs:
 
     steps:
       - name: Checkout
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-            # 기본 브랜치로 명시 체크아웃 (예: main)
-            ref: ${{ github.event.repository.default_branch }}
-            persist-credentials: true
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # 기본 브랜치로 명시 체크아웃 (예: main)
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,33 +45,33 @@ jobs:
         run: node scripts/sheet_to_quizpack.mjs
 
       - name: Commit & Push (rebase + safe retry)
-          env:
-            BRANCH: ${{ github.event.repository.default_branch }}
-          run: |
-            set -euo pipefail
-            git config user.name  "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git config pull.rebase true
-            git config rebase.autoStash true
-            git add -A
-            if git diff --cached --quiet; then
-              echo "No changes to commit."
-              exit 0
-            fi
-            git commit -m "chore(quiz-pack): update from Google Sheet"
+        env:
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config pull.rebase true
+          git config rebase.autoStash true
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(quiz-pack): update from Google Sheet"
 
-            # 현재 브랜치/트래킹 보장
-            BR="${BRANCH:-$(git symbolic-ref --short HEAD || echo main)}"
-            git fetch origin "$BR"
-            git branch --set-upstream-to="origin/$BR" "$BR" || true
+          # 현재 브랜치/트래킹 보장
+          BR="${BRANCH:-$(git symbolic-ref --short HEAD || echo main)}"
+          git fetch origin "$BR"
+          git branch --set-upstream-to="origin/$BR" "$BR" || true
 
-            # 원격 위에 rebase
-            git pull --rebase --autostash origin "$BR"
+          # 원격 위에 rebase
+          git pull --rebase --autostash origin "$BR"
 
-            # 푸시 (원격이 다시 앞서면 1회 안전 강제)
-            if git push origin HEAD:"$BR"; then
-              echo "Pushed successfully."
-            else
-              echo "Push rejected; retry with --force-with-lease once."
-              git push --force-with-lease origin HEAD:"$BR"
-            fi
+          # 푸시 (원격이 다시 앞서면 1회 안전 강제)
+          if git push origin HEAD:"$BR"; then
+            echo "Pushed successfully."
+          else
+            echo "Push rejected; retry with --force-with-lease once."
+            git push --force-with-lease origin HEAD:"$BR"
+          fi
