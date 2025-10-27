@@ -1,1 +1,980 @@
-[]
+[
+  {
+    "id": "KOR-001",
+    "subject": "KOR",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "다음 중 올바른 표기는 무엇인가",
+    "choices": [
+      {
+        "key": "A",
+        "text": "되요"
+      },
+      {
+        "key": "B",
+        "text": "돼요"
+      },
+      {
+        "key": "C",
+        "text": "되여"
+      },
+      {
+        "key": "D",
+        "text": "대요"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "되다'의 활용은 '돼요'가 맞음",
+    "tags": [
+      "kor",
+      "맞춤법"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "KOR-002",
+    "subject": "KOR",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "다음 중 올바른 띄어쓰기는 무엇인가",
+    "choices": [
+      {
+        "key": "A",
+        "text": "할수 있다"
+      },
+      {
+        "key": "B",
+        "text": "할 수있다"
+      },
+      {
+        "key": "C",
+        "text": "할 수 있다"
+      },
+      {
+        "key": "D",
+        "text": "할수있다"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "보조용언 결합은 '할 수 있다'로 띄어 씀",
+    "tags": [
+      "kor",
+      "띄어쓰기"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "KOR-003",
+    "subject": "KOR",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "stem": "다음 중 '않'을 올바르게 사용한 문장은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "그는 웃지 안았다"
+      },
+      {
+        "key": "B",
+        "text": "그는 웃지 않았다"
+      },
+      {
+        "key": "C",
+        "text": "그는 않 웃었다"
+      },
+      {
+        "key": "D",
+        "text": "그는 않앗다"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "부정부사 '않-'은 용언 앞에 붙여 '않았다'로 씀",
+    "tags": [
+      "kor",
+      "부정표현"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "KOR-004",
+    "subject": "KOR",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "stem": "다음 중 표준어는 무엇인가",
+    "choices": [
+      {
+        "key": "A",
+        "text": "설레이다"
+      },
+      {
+        "key": "B",
+        "text": "설레다"
+      },
+      {
+        "key": "C",
+        "text": "설레여"
+      },
+      {
+        "key": "D",
+        "text": "설레인다"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "표준어는 '설레다'",
+    "tags": [
+      "kor",
+      "표준어"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "KOR-005",
+    "subject": "KOR",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "stem": "다음 중 맞춤법이 옳은 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "어림 잡다"
+      },
+      {
+        "key": "B",
+        "text": "어림잡다"
+      },
+      {
+        "key": "C",
+        "text": "어림 집다"
+      },
+      {
+        "key": "D",
+        "text": "어림잡 다"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "합성어 '어림잡다'는 붙여 씀",
+    "tags": [
+      "kor",
+      "합성어"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "ENG-001",
+    "subject": "ENG",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "Choose the correct form: I ___ a book every day.",
+    "choices": [
+      {
+        "key": "A",
+        "text": "read"
+      },
+      {
+        "key": "B",
+        "text": "reads"
+      },
+      {
+        "key": "C",
+        "text": "am read"
+      },
+      {
+        "key": "D",
+        "text": "reading"
+      }
+    ],
+    "answerKey": "A",
+    "explanation": "주어 I에 단순현재는 'read'",
+    "tags": [
+      "eng",
+      "verb",
+      "present"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "ENG-002",
+    "subject": "ENG",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "Fill in the blank: I have ___ apple.",
+    "choices": [
+      {
+        "key": "A",
+        "text": "a"
+      },
+      {
+        "key": "B",
+        "text": "an"
+      },
+      {
+        "key": "C",
+        "text": "the"
+      },
+      {
+        "key": "D",
+        "text": "no"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "모음 소리 앞에는 'an'",
+    "tags": [
+      "eng",
+      "article"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "ENG-003",
+    "subject": "ENG",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "stem": "Choose the correct preposition: ___ Monday",
+    "choices": [
+      {
+        "key": "A",
+        "text": "In"
+      },
+      {
+        "key": "B",
+        "text": "On"
+      },
+      {
+        "key": "C",
+        "text": "At"
+      },
+      {
+        "key": "D",
+        "text": "For"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "요일 앞에는 'on'",
+    "tags": [
+      "eng",
+      "preposition"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "ENG-004",
+    "subject": "ENG",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "stem": "Choose the past tense of 'go'.",
+    "choices": [
+      {
+        "key": "A",
+        "text": "goed"
+      },
+      {
+        "key": "B",
+        "text": "goes"
+      },
+      {
+        "key": "C",
+        "text": "went"
+      },
+      {
+        "key": "D",
+        "text": "gone"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "go의 과거형은 went",
+    "tags": [
+      "eng",
+      "verb",
+      "past"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "ENG-005",
+    "subject": "ENG",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "stem": "Choose the correct comparative: A is ___ than B.",
+    "choices": [
+      {
+        "key": "A",
+        "text": "more big"
+      },
+      {
+        "key": "B",
+        "text": "bigger"
+      },
+      {
+        "key": "C",
+        "text": "most big"
+      },
+      {
+        "key": "D",
+        "text": "biggest"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "단음절 형용사 비교급은 -er",
+    "tags": [
+      "eng",
+      "adjective",
+      "comparative"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "MATH-001",
+    "subject": "MATH",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "7 + 5 = ?",
+    "choices": [
+      {
+        "key": "A",
+        "text": "10"
+      },
+      {
+        "key": "B",
+        "text": "11"
+      },
+      {
+        "key": "C",
+        "text": "12"
+      },
+      {
+        "key": "D",
+        "text": "13"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "7과 5의 합은 12",
+    "tags": [
+      "math",
+      "arithmetic"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "MATH-002",
+    "subject": "MATH",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "stem": "12 × 3 = ?",
+    "choices": [
+      {
+        "key": "A",
+        "text": "24"
+      },
+      {
+        "key": "B",
+        "text": "36"
+      },
+      {
+        "key": "C",
+        "text": "30"
+      },
+      {
+        "key": "D",
+        "text": "15"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "12에 3을 곱하면 36",
+    "tags": [
+      "math",
+      "multiplication"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "MATH-003",
+    "subject": "MATH",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "stem": "45 ÷ 9 = ?",
+    "choices": [
+      {
+        "key": "A",
+        "text": "4"
+      },
+      {
+        "key": "B",
+        "text": "5"
+      },
+      {
+        "key": "C",
+        "text": "6"
+      },
+      {
+        "key": "D",
+        "text": "7"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "45를 9로 나누면 5",
+    "tags": [
+      "math",
+      "division"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "MATH-004",
+    "subject": "MATH",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "stem": "3/4 + 1/2 = ?",
+    "choices": [
+      {
+        "key": "A",
+        "text": "5/4"
+      },
+      {
+        "key": "B",
+        "text": "1/4"
+      },
+      {
+        "key": "C",
+        "text": "3/8"
+      },
+      {
+        "key": "D",
+        "text": "7/8"
+      }
+    ],
+    "answerKey": "A",
+    "explanation": "1/2는 2/4; 3/4+2/4=5/4",
+    "tags": [
+      "math",
+      "fraction"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "MATH-005",
+    "subject": "MATH",
+    "difficulty": 5,
+    "timeLimitSec": 10,
+    "stem": "방정식 2x + 3 = 11의 해 x 는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "3"
+      },
+      {
+        "key": "B",
+        "text": "4"
+      },
+      {
+        "key": "C",
+        "text": "5"
+      },
+      {
+        "key": "D",
+        "text": "6"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "2x=8 → x=4",
+    "tags": [
+      "math",
+      "equation"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SCI-001",
+    "subject": "SCI",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "광합성이 일어나는 세포 소기관은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "미토콘드리아"
+      },
+      {
+        "key": "B",
+        "text": "소포체"
+      },
+      {
+        "key": "C",
+        "text": "엽록체"
+      },
+      {
+        "key": "D",
+        "text": "핵"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "엽록체에서 광합성 진행",
+    "tags": [
+      "sci",
+      "biology",
+      "photosynthesis"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SCI-002",
+    "subject": "SCI",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "물의 끓는점(섭씨)은 약 몇 도인가",
+    "choices": [
+      {
+        "key": "A",
+        "text": "0도"
+      },
+      {
+        "key": "B",
+        "text": "50도"
+      },
+      {
+        "key": "C",
+        "text": "100도"
+      },
+      {
+        "key": "D",
+        "text": "120도"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "표준압에서 100도",
+    "tags": [
+      "sci",
+      "physics",
+      "thermo"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SCI-003",
+    "subject": "SCI",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "stem": "태양에 가장 가까운 행성은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "화성"
+      },
+      {
+        "key": "B",
+        "text": "지구"
+      },
+      {
+        "key": "C",
+        "text": "수성"
+      },
+      {
+        "key": "D",
+        "text": "금성"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "수성이 가장 안쪽 궤도",
+    "tags": [
+      "sci",
+      "astronomy",
+      "planets"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SCI-004",
+    "subject": "SCI",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "stem": "고체가 기체로 바로 변하는 현상은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "응고"
+      },
+      {
+        "key": "B",
+        "text": "승화"
+      },
+      {
+        "key": "C",
+        "text": "응축"
+      },
+      {
+        "key": "D",
+        "text": "기화"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "고체→기체는 승화",
+    "tags": [
+      "sci",
+      "chemistry",
+      "phase"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SCI-005",
+    "subject": "SCI",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "stem": "호흡에 직접 사용되는 기체는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "질소"
+      },
+      {
+        "key": "B",
+        "text": "산소"
+      },
+      {
+        "key": "C",
+        "text": "이산화탄소"
+      },
+      {
+        "key": "D",
+        "text": "아르곤"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "세포 호흡에 산소 사용",
+    "tags": [
+      "sci",
+      "biology",
+      "respiration"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SOC-001",
+    "subject": "SOC",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "시장경제에 대한 설명으로 옳은 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "가격은 정부가 일괄 결정한다"
+      },
+      {
+        "key": "B",
+        "text": "가격은 전적으로 우연히 정해진다"
+      },
+      {
+        "key": "C",
+        "text": "가격은 수요와 공급에 의해 형성된다"
+      },
+      {
+        "key": "D",
+        "text": "가격은 항상 일정하다"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "시장에서는 수요·공급이 가격 형성",
+    "tags": [
+      "soc",
+      "economy",
+      "market"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SOC-002",
+    "subject": "SOC",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "대한민국의 수도는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "부산"
+      },
+      {
+        "key": "B",
+        "text": "인천"
+      },
+      {
+        "key": "C",
+        "text": "서울"
+      },
+      {
+        "key": "D",
+        "text": "대전"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "대한민국의 수도는 서울",
+    "tags": [
+      "soc",
+      "korea",
+      "geo"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SOC-003",
+    "subject": "SOC",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "stem": "대한민국 국회의 주요 기능은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "사법"
+      },
+      {
+        "key": "B",
+        "text": "행정"
+      },
+      {
+        "key": "C",
+        "text": "입법"
+      },
+      {
+        "key": "D",
+        "text": "감사"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "국회는 입법 기관",
+    "tags": [
+      "soc",
+      "civics",
+      "assembly"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SOC-004",
+    "subject": "SOC",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "stem": "다음 중 세금의 주요 목적에 해당하는 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "사적 이익 극대화"
+      },
+      {
+        "key": "B",
+        "text": "공공재 공급과 소득 재분배"
+      },
+      {
+        "key": "C",
+        "text": "개인 저축 보장"
+      },
+      {
+        "key": "D",
+        "text": "물가 고정"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "세금은 공공재와 재분배 재원",
+    "tags": [
+      "soc",
+      "tax",
+      "public"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "SOC-005",
+    "subject": "SOC",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "stem": "다음 중 기본권이 아닌 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "자유권"
+      },
+      {
+        "key": "B",
+        "text": "평등권"
+      },
+      {
+        "key": "C",
+        "text": "참정권"
+      },
+      {
+        "key": "D",
+        "text": "사법권"
+      }
+    ],
+    "answerKey": "D",
+    "explanation": "사법권은 국가 권력 작용",
+    "tags": [
+      "soc",
+      "rights",
+      "civics"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "HIST-001",
+    "subject": "HIST",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "stem": "한글을 창제한 왕은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "태조"
+      },
+      {
+        "key": "B",
+        "text": "세종"
+      },
+      {
+        "key": "C",
+        "text": "영조"
+      },
+      {
+        "key": "D",
+        "text": "정조"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "세종대왕이 훈민정음을 창제",
+    "tags": [
+      "hist",
+      "korea",
+      "hangul"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "HIST-002",
+    "subject": "HIST",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "stem": "조선을 건국한 인물은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "세종"
+      },
+      {
+        "key": "B",
+        "text": "세조"
+      },
+      {
+        "key": "C",
+        "text": "이성계"
+      },
+      {
+        "key": "D",
+        "text": "정도전"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "조선의 개창자는 이성계",
+    "tags": [
+      "hist",
+      "korea",
+      "chosun"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "HIST-003",
+    "subject": "HIST",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "stem": "고려를 건국한 왕은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "태조 왕건"
+      },
+      {
+        "key": "B",
+        "text": "광종"
+      },
+      {
+        "key": "C",
+        "text": "문종"
+      },
+      {
+        "key": "D",
+        "text": "충렬왕"
+      }
+    ],
+    "answerKey": "A",
+    "explanation": "고려 태조는 왕건",
+    "tags": [
+      "hist",
+      "korea",
+      "goryeo"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "HIST-004",
+    "subject": "HIST",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "stem": "프랑스 혁명이 시작된 해는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "1776"
+      },
+      {
+        "key": "B",
+        "text": "1789"
+      },
+      {
+        "key": "C",
+        "text": "1815"
+      },
+      {
+        "key": "D",
+        "text": "1848"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "바스티유 습격 1789",
+    "tags": [
+      "hist",
+      "world",
+      "france"
+    ],
+    "rev": 1
+  },
+  {
+    "id": "HIST-005",
+    "subject": "HIST",
+    "difficulty": 5,
+    "timeLimitSec": 10,
+    "stem": "산업혁명이 처음 본격적으로 일어난 나라는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "프랑스"
+      },
+      {
+        "key": "B",
+        "text": "독일"
+      },
+      {
+        "key": "C",
+        "text": "영국"
+      },
+      {
+        "key": "D",
+        "text": "미국"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "영국에서 산업혁명 시작",
+    "tags": [
+      "hist",
+      "world",
+      "industrial"
+    ],
+    "rev": 1
+  }
+]
