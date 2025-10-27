@@ -14,7 +14,7 @@
     "manifest:student": "DIST_DIR=apps/student/dist tsx scripts/build-manifest.mjs",
     "sri:student": "DIST_DIR=apps/student/dist tsx scripts/postbuild-sri.mjs",
     "manifest:admin": "DIST_DIR=apps/admin/dist tsx scripts/build-manifest.mjs",
-    "sri:admin": "DIST_DIR=apps/admin/dist tsx scripts/postbuild-sri.mjs"
+    "sri:admin": "DIST_DIR=apps/admin/dist tsx scripts/postbuild-sri.mjs",
   },
   "devDependencies": {
     "@types/node": "^20.11.16",

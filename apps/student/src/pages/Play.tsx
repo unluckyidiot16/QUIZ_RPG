@@ -6,7 +6,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import * as api from '../api';
 import { makeRng } from '../shared/lib/rng';
 import { actByPattern, PatternKey, applyShieldToDamage } from '../game/combat/patterns';
-import { MAX_HP, PLAYER_BASE_DMG, PLAYER_CRIT_CHANCE } from '../game/combat/constants';
 import { pickEnemyByQuery } from '../core/enemy';
 import { enemyFrameUrl, stateFrameCount, hitTintStyle  } from '../core/sprites';
 import { useSpriteAnimator } from '../core/useSpriteAnimator';
@@ -14,17 +13,26 @@ import type { EnemyState } from '../core/sprites';
 import type { EnemyAction } from '../game/combat/patterns';
 import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../core/affinity';
 import { loadPlayer, loadItemDB, deriveBattleStats, grantSubjectXp, savePlayer } from '../core/player';
-import { SUBJECTS, SUBJECT_LABEL, type Subject } from '../core/char.types';
+import { SUBJECTS, type Subject } from '../core/char.types';
+import { buildQuestionPools, pickQuestionForSubject, type QuizItem } from '../game/quiz/picker';
 import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
 import { staticURL, appPath } from '../shared/lib/urls';
 import { RunSummary } from '../core/run.types'
-import {PLAY_XP_PER_CORRECT, XP_ON_WRONG, STREAK_BONUS_ENABLED, STREAK_BONUS_TABLE, TIME_BONUS_ENABLED, TIME_BONUS_THRESH_MS, TIME_BONUS_XP} from '../game/combat/constants';
+import {MAX_HP, PLAYER_CRIT_CHANCE, PLAY_XP_PER_CORRECT, XP_ON_WRONG, STREAK_BONUS_ENABLED, STREAK_BONUS_TABLE, TIME_BONUS_ENABLED, TIME_BONUS_THRESH_MS, TIME_BONUS_XP} from '../game/combat/constants';
 
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
-type Question = { id: string; stem: string; choices: Choice[]; answerKey: Choice['key']; explanation?: string };
-type Turn = { id: string; pick: Choice['key']; correct: boolean };
+type Question = {
+  id: string;
+  stem: string;
+  choices: Choice[];
+  answerKey: Choice['key'];
+  explanation?: string;
+  subject?: string;
+  difficulty?: number;
+  timeLimitSec?: number;
+};type Turn = { id: string; pick: Choice['key']; correct: boolean };
 
 type TurnLog = {
   id: string;
@@ -56,14 +64,6 @@ function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): 
   return null;
 }
 
-function resolvePackUrl(pack: string) {
-  const base = import.meta.env.BASE_URL || '/';
-  const url = new URL(base, window.location.origin);      // ex) https://site.com/app/
-  url.pathname = url.pathname.replace(/\/$/, '') + `/packs/${pack}.json`; // .../packs/sample.v3.json
-  return url.toString();
-}
-
-
 function normalizeQuestion(raw: any, i: number): Question | null {
   if (!raw) return null;
 
@@ -76,7 +76,16 @@ function normalizeQuestion(raw: any, i: number): Question | null {
     }));
     const ans = normalizeAnswerKey(raw.answerKey, raw.answer, raw.correctIndex);
     if (!ans) return null;
-    return { id: String(raw.id ?? i), stem: String(raw.stem), choices: normChoices, answerKey: ans, explanation: raw.explanation };
+    return {
+      id: String(raw.id ?? i), 
+        stem: String(raw.stem),
+        choices: normChoices,
+        answerKey: ans,
+        explanation: raw.explanation,
+        subject: raw.subject,
+        difficulty: Number.isFinite(+raw.difficulty) ? +raw.difficulty : undefined,
+        timeLimitSec: Number.isFinite(+raw.timeLimitSec) ? +raw.timeLimitSec : undefined,
+    };  
   }
 
   // 2) {stem, options[]}
@@ -123,6 +132,12 @@ export default function Play() {
 
   const [combatStats, setCombatStats] = useState<ReturnType<typeof deriveBattleStats> | null>(null);
 
+  const [timeLeftMs, setTimeLeftMs] = useState<number>(0);
+
+  const [questions, setQuestions] = useState<QuizItem[]>([]);
+  const [qpools, setQpools] = useState<ReturnType<typeof buildQuestionPools> | null>(null);
+  const [usedIds, setUsedIds] = useState<Set<string>>(new Set()); // 중복 회피(선택)
+
   const triggerShake = (ms = 120) => {
     setShake(true);
     window.setTimeout(() => setShake(false), ms);
@@ -142,7 +157,6 @@ export default function Play() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('로딩 중…');
 
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const q = questions[idx] || null;
 
@@ -288,8 +302,10 @@ export default function Play() {
     (async () => {
       try {
         setLoading(true);
-        const url = resolvePackUrl(pack);
-        const res = await fetch(url, {cache: 'reload', signal: ac.signal});
+        // pack 쿼리(param)로 선택된 팩을 불러옵니다. (예: /packs/sample.json)
+        const path = `/packs/${pack.endsWith('.json') ? pack : `${pack}.json`}`;
+        const url  = staticURL(path);
+        const res  = await fetch(url, { cache: 'reload', signal: ac.signal });
         let rawList: any = [];
         if (res.ok) rawList = await res.json();
         else rawList = [{id: 'sample-1', stem: '샘플 문항입니다. A를 선택하세요.', choices: ['A', 'B', 'C', 'D'], answerKey: 'A'}];
@@ -307,6 +323,7 @@ export default function Play() {
         });
 
         setQuestions(clean);
+        setQpools(buildQuestionPools(clean, SUBJECTS));
         setIdx(0);
         if (invalids.length) console.warn(`[PACK:${pack}] 무시된 비정상 문항 ${invalids.length}개`, invalids.slice(0, 5));
       } catch (e) {
@@ -322,14 +339,29 @@ export default function Play() {
     return () => ac.abort();
   }, [pack]);
 
-  // 3) 문항 표출 로그(선택)
+  // 3) 문항 표출: 시간 기록 + (옵션)카운트다운 시작
   useEffect(() => {
-    if (q && proofRef.current?.log) {
-      proofRef.current.log({type: 'q_shown', id: q.id, idx}).catch?.(() => {
-        qShownAtRef.current = Date.now();
-      });
-    }
-  }, [q, idx]);
+    if (!q) return;
+    // (1) 표출 시각은 항상 기록
+    qShownAtRef.current = Date.now();
+    // (2) Proof 로깅은 선택
+    try { proofRef.current?.log?.({ type: 'q_shown', id: q.id, idx }); } catch {}
+    // (3) 시간 보너스가 켜져 있을 때만 타이머 가동
+    if (!TIME_BONUS_ENABLED || phase !== 'quiz') return;
+    const totalMs = (q.timeLimitSec && q.timeLimitSec>0)
+      ? q.timeLimitSec * 1000
+      : TIME_BONUS_THRESH_MS; // fallback
+    setTimeLeftMs(totalMs);    
+    
+    const tick = () => {
+      const shown = qShownAtRef.current || Date.now();
+      const left = Math.max(0, totalMs - (Date.now() - shown));
+      setTimeLeftMs(left);
+    };
+    tick();
+    const h = window.setInterval(tick, 100);
+    return () => window.clearInterval(h);
+    }, [q, idx, phase]);
 
   // 4) 키보드 입력(ABCD)
   useEffect(() => {
@@ -372,7 +404,23 @@ export default function Play() {
 
   function chooseSubject(s: Subject){
     setSubject(s);
-    // TODO: pickQuestionForSubject(s)로 과목별 문제를 골라 세팅(팩에 과목 태그가 들어가면 적용)
+    if (qpools) {
+      const p = loadPlayer();
+      const lv = (p as any)?.base?.subLevels?.[s]?.lv ?? 0;
+      const qNew = pickQuestionForSubject(s, qpools, {
+        level: lv,
+        // 필요 시 난이도 커브 주입: diffSelector: ({level}) => Math.min(5, Math.max(1, Math.round(1 + level/5)))
+          avoidIds: usedIds,
+      });
+      if (qNew) {
+        setUsedIds(prev => new Set(prev).add(qNew.id));
+        setQuestions(prev => {
+          const next = [...prev];
+          next[idx] = qNew;              // ← 현재 슬롯을 과목 맞춘 문항으로 교체
+          return next;
+        });
+      }
+    }
     setPhase('quiz');
   }
 
@@ -400,18 +448,6 @@ export default function Play() {
       const subj  = resolveSubject();
       const esubj = resolveEnemySubject();
       const atk = combatStats?.subAtk?.[subj] ?? 1;
-      
-      // ✅ 정답 시 과목 경험치 지급
-      // ⚠️ 부족 데이터: “정답 1개당 지급 XP” 정책값(예: 5, 10 등)
-      //  - 아래 상수는 임시 이름입니다. 팀이 원하는 값으로 player.ts(혹은 constants)에서 export해 사용하세요.
-      const p = loadPlayer();
-      grantSubjectXp(p, subj, PLAY_XP_PER_CORRECT);
-      savePlayer(p);
-      // 전투 스탯도 즉시 갱신(과목 공격력 반영)
-      try {
-        const items = await loadItemDB('/packs/items.v1.json');
-        setCombatStats(deriveBattleStats(items, loadPlayer()));
-      } catch {}
       
       // 2) 치명타(기존 로직 유지, 배수는 공격력 기준)
       const crit  = (rng.next() < PLAYER_CRIT_CHANCE) ? Math.ceil(atk * 0.5) : 0;
@@ -451,6 +487,7 @@ export default function Play() {
       if (tagLabel && thisLatch === tagLatchRef.current) showTag(tagLabel);
 
       // ✅ 정답 XP = 기본 + (옵션)연속 + (옵션)시간
+      const p = loadPlayer();
       let delta = PLAY_XP_PER_CORRECT;
       if (STREAK_BONUS_ENABLED) {
         streakRef.current += 1;
@@ -459,9 +496,11 @@ export default function Play() {
         streakRef.current = 0;
       }
       if (TIME_BONUS_ENABLED && qShownAtRef.current != null) {
+        const totalMs = (q?.timeLimitSec && q.timeLimitSec > 0) ? q.timeLimitSec * 1000 : TIME_BONUS_THRESH_MS;
         const elapsed = Date.now() - qShownAtRef.current;
-        if (elapsed <= TIME_BONUS_THRESH_MS) delta += TIME_BONUS_XP;
+        if (elapsed <= totalMs) delta += TIME_BONUS_XP;
       }
+      
       if (delta !== 0) {
         grantSubjectXp(p, subj, delta);
         savePlayer(p);
@@ -645,9 +684,24 @@ export default function Play() {
     if (isSubject(s)) return s as Subject;
     return (enemyDef as any).subject ?? 'ENG';
   }
-  
 
-    // ───────────── 렌더 ─────────────
+  function TimerBar({ ms, totalMs }: { ms: number; totalMs: number }) {
+    const pct = Math.max(0, Math.min(100, Math.round((ms / Math.max(1, totalMs)) * 100)));
+    return (
+      <div className="mb-2">
+        <div className="flex items-center justify-between text-xs opacity-80">
+          <span>시간 제한</span>
+          <span>{(ms / 1000).toFixed(1)}s</span>
+        </div>
+        <div className="h-1.5 bg-slate-700 rounded overflow-hidden">
+          <div className="h-full bg-amber-400 transition-[width] duration-100" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    );
+  }
+
+
+  // ───────────── 렌더 ─────────────
     if (loading) return <div className="p-6">로딩…</div>;
     if (!q) return <div className="p-6">문항이 없습니다. <span className="text-rose-400 ml-2">{msg}</span></div>;
 
@@ -791,6 +845,9 @@ export default function Play() {
           ) : (
             // 문제 풀이 화면
             <div className="p-4 rounded bg-slate-800">
+              {(TIME_BONUS_ENABLED || (q?.timeLimitSec && q.timeLimitSec>0)) && (
+                <TimerBar ms={timeLeftMs} totalMs={(q?.timeLimitSec ? q.timeLimitSec*1000 : TIME_BONUS_THRESH_MS)} />
+              )}
               <div className="font-medium whitespace-pre-wrap">{q?.stem}</div>
               <div className="grid gap-2 mt-3">
                 {(q?.choices ?? []).map((c) => (

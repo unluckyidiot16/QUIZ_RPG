@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "clean:srcjs": "rimraf apps/student/src/**/*.js apps/student/src/**/*.d.ts"
+    "clean:srcjs": "rimraf apps/student/src/**/*.js apps/student/src/**/*.d.ts",
+    "build:quizpack": "cross-env NODE_OPTIONS=-r dotenv/config node scripts/sheet_to_quizpack.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.0",
