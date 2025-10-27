@@ -35,7 +35,7 @@ export default function Lobby() {
           type SkillColor = 'blank'|'blue'|'dark'|'green'|'red'|'yellow';
            const color: SkillColor = subj ? SUBJECT_TO_COLOR[subj] : 'blank';
           return (
-            <Link key={st.id} to={`/play?stage=${st.id}`} className="p-4 rounded-xl border border-white/10 bg-slate-900/60 hover:bg-slate-900">
+            <Link key={st.id} to={`/play?stage=${st.id}&enemy=${st.enemyId}${subj ? `&esubj=${subj}` : ''}`} className="p-4 rounded-xl ...">
               <div className="flex items-center justify-between">
                 <div className="text-base font-medium">{st.name}</div>
                 <span
