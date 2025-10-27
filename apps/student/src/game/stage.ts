@@ -1,5 +1,5 @@
 // Stage 정의 & 런타임 유틸
-import { type Subject } from '../core/char.types';
+import { SUBJECTS, isSubject, type Subject } from '../core/char.types';
 import type { DropTable } from './loot';
 
 export type StageDef = {
@@ -60,10 +60,15 @@ function mulberry32(a:number){ return function(){ let t=a+=0x6D2B79F5; t=Math.im
 const hash32 = (s:string)=>{ let h=2166136261>>>0; for (let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619) } return h>>>0; };
 
 export function selectSubjectsForTurn(stage: StageDef, turn: number, seed: string): Subject[] {
-  const pool = (stage.subjectPool && stage.subjectPool.length ? stage.subjectPool : ['KOR','ENG','MATH','SCI','SOC','HIST']) as Subject[];
+  const raw = (stage.subjectPool && stage.subjectPool.length ? stage.subjectPool : SUBJECTS) as readonly Subject[];
+  const pool = Array.from(new Set(raw.filter(s => isSubject(s)))) as Subject[]; // ✅ sanitize
+
   const rng = mulberry32(hash32(`${stage.id}:${seed}:${turn}`));
   const arr = [...pool];
-  for (let i=arr.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]] }
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
   return arr.slice(0, 4);
 }
 

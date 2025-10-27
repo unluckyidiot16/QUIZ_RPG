@@ -1,222 +1,76 @@
-// scripts/sheet_to_quizpack.mjs
-// Google Sheet (gviz JSON) → apps/student/public/packs/<pack>.json
-// 열 별칭 자유: id, subject(과목), difficulty(난이도), time/timeLimit/timeLimitSec,
-// stem(지문), A/B/C/D 또는 options/choices, answerKey/answer/correctIndex, explanation, tags, rev
-// 사용법:
-//   SHEET_ID=... SHEET_NAME="문제시트" OUT_PATH="apps/student/public/packs/sample.json" node scripts/sheet_to_quizpack.mjs
-//
-// 옵션(환경변수):
-//   SUBJECT_MODE=strict|allowGEN   (기본 strict = 6과목으로 정규화, GEN은 매핑)
-//   GEN_MAP_TO=SOC                 (strict일 때 GEN을 어느 과목으로 매핑할지)
-//   DIFF_TABLE="25,20,15,12,10"    (난이도 1..5 기본 제한시간초, 미지정시 내부 기본표)
-
-// .env.local 우선, 없으면 .env 로드
-import fsSync from 'node:fs'; 
-try {
-  const { default: dotenv } = await import('dotenv');
-  const envPath = fsSync.existsSync('.env.local') ? '.env.local' : '.env';
-  dotenv.config({ path: envPath });
-} catch {}
-
+#!/usr/bin/env node
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
-const SHEET_ID   = process.env.SHEET_ID;
-const SHEET_NAME = process.env.SHEET_NAME || '';
-const OUT_PATH   = process.env.OUT_PATH || 'apps/student/public/packs/sample.json';
+// ===== 새 저장 로직: 과목별 파일 + index.json + (레거시 단일 파일 병행) =====
 
-const SUBJECT_MODE = (process.env.SUBJECT_MODE || 'strict').toLowerCase();
-const GEN_MAP_TO   = (process.env.GEN_MAP_TO || 'SOC').toUpperCase();
+// 1) PACK_ID/OUT_DIR 계산 (환경변수 없으면 OUT_PATH에서 유도)
+const PACK_ID = process.env.PACK_ID
+  || path.basename(String(OUT_PATH)).replace(/\.json$/,'')
+  || 'sample';
 
-const DIFF_TABLE = (process.env.DIFF_TABLE || '').split(',').map(s=>Number(s.trim())).filter(n=>Number.isFinite(n));
-const DIFF_TIME_DEFAULT = DIFF_TABLE.length >= 5
-  ? {1:DIFF_TABLE[0],2:DIFF_TABLE[1],3:DIFF_TABLE[2],4:DIFF_TABLE[3],5:DIFF_TABLE[4]}
-  : {1:25,2:20,3:15,4:12,5:10}; // 제안 기본값
+const OUT_DIR = process.env.OUT_DIR
+  || path.join(path.dirname(OUT_PATH), PACK_ID);
 
-if (!SHEET_ID) {
-  console.error('[quizpack] SHEET_ID is required.');
-  process.exit(1);
-}
+// 2) 해시 유틸
+const hashJson = (obj) =>
+  crypto.createHash('sha1').update(JSON.stringify(obj)).digest('hex').slice(0,8);
 
-async function httpGet(url) {
-  if (typeof fetch === 'function') return fetch(url, { cache: 'no-store' });
-  const { default: nodeFetch } = await import('node-fetch');
-  return nodeFetch(url);
-}
-function buildGvizUrl(id, sheetName=''){
-  const base = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:json`;
-  return sheetName ? `${base}&sheet=${encodeURIComponent(sheetName)}` : base;
-}
-function parseGviz(text){
-  const m = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)\s*;?\s*$/);
-  if (!m) throw new Error('gviz parse fail: unexpected response');
-  return JSON.parse(m[1]);
-}
-function mapHeader(cols){
-  const idx = {};
-  cols.forEach((c, i) => { idx[(c?.label || '').trim().toLowerCase()] = i; });
-  return idx;
-}
-function getV(row, headerIdx, aliases){
-  for (const key of aliases) {
-    const k = String(key).toLowerCase();
-    const i = headerIdx[k];
-    if (i == null) continue;
-    const val = row?.c?.[i]?.v;
-    if (val != null && val !== '') return val;
-  }
-  return undefined;
-}
-const SUBJECTS = new Set(['KOR','ENG','MATH','SCI','SOC','HIST']);
-const SUBJECT_SYNONYM = new Map([
-  // 한글 별칭
-  ['국어','KOR'], ['영어','ENG'], ['수학','MATH'], ['과학','SCI'], ['사회','SOC'], ['역사','HIST'],
-  // 영문 소문자
-  ['korean','KOR'], ['english','ENG'], ['math','MATH'], ['science','SCI'], ['social','SOC'], ['history','HIST'],
-]);
+// 3) 과목 분배
+const SUBJECT_CODES = ['KOR','ENG','MATH','SCI','SOC','HIST'];
+const by = Object.fromEntries([...SUBJECT_CODES, 'GEN'].map(s => [s, []]));
 
-function canonSubject(x){
-  if (!x) return undefined;
-  const s = String(x).trim();
-  const u = s.toUpperCase();
-  if (SUBJECTS.has(u)) return u;
-  const syn = SUBJECT_SYNONYM.get(s.toLowerCase());
-  if (syn) return syn;
-  if (u === 'GEN') {
-    return SUBJECT_MODE === 'allowGEN' ? 'GEN' : GEN_MAP_TO;
-  }
-  return undefined;
-}
-function normalizeAnswerKey(answerKey, answer, correctIndex){
-  // 'A'~'D' or 숫자 인덱스(0~3)
-  if (typeof answerKey === 'string' && /^[ABCD]$/i.test(answerKey)) return answerKey.toUpperCase();
-  if (typeof answer === 'string' && /^[ABCD]$/i.test(answer)) return answer.toUpperCase();
-  const idx = (typeof correctIndex === 'number' ? correctIndex
-    : typeof answer === 'number' ? answer
-      : typeof answerKey === 'number' ? answerKey
-        : -1);
-  if (idx >= 0 && idx <= 3) return (['A','B','C','D'])[idx];
-  return null;
-}
-function toInt(v){ const n = Number(v); return Number.isFinite(n) ? Math.floor(n) : undefined; }
-function parseTags(v){
-  if (!v) return undefined;
-  if (Array.isArray(v)) return v.map(String).map(s=>s.trim()).filter(Boolean);
-  // 쉼표/세미콜론/파이프 구분
-  return String(v).split(/[;,|]/).map(s=>s.trim()).filter(Boolean);
-}
-
-async function main(){
-  const url = buildGvizUrl(SHEET_ID, SHEET_NAME);
-  console.log('[quizpack] fetching sheet…', url);
-  let json;
-  try {
-    const res = await httpGet(url);
-    const txt = await res.text();
-    json = parseGviz(txt);
-  } catch (e) {
-    console.error('[quizpack] gviz fetch failed:', e?.message || e);
-    process.exit(1);
-  }
-
-  const rows = json?.table?.rows || [];
-  const cols = json?.table?.cols || [];
-  const H = mapHeader(cols);
-  console.log(`[quizpack] rows=${rows.length}, cols=${cols.length}`);
-
-  // 헤더 별칭
-  const A_ID       = ['id','문항id','qid'];
-  const A_SUBJECT  = ['subject','과목'];
-  const A_DIFF     = ['difficulty','난이도','diff','level'];
-  const A_TIME     = ['timelimitsec','time','timelimit','limit','제한시간','time(s)'];
-  const A_STEM     = ['stem','지문','문항','문제'];
-  const A_EXPL     = ['explanation','해설','해답','설명'];
-  const A_TAGS     = ['tags','태그'];
-  const A_REV      = ['rev','revision','ver','version'];
-
-  // 선택지
-  const A_A        = ['a','A'];
-  const A_B        = ['b','B'];
-  const A_C        = ['c','C'];
-  const A_D        = ['d','D'];
-  const A_CHOICES  = ['choices','options','선택지','보기'];
-  const A_ANS      = ['answerkey','answer','정답'];
-  const A_CIDX     = ['correctindex','answerindex','정답인덱스'];
-
-  /** @type {any[]} */
-  const out = [];
-  const invalids = [];
-
-  rows.forEach((r, i) => {
-    const id   = String(getV(r,H,A_ID) ?? (i+1)).trim();
-    const subj = canonSubject(getV(r,H,A_SUBJECT));
-    const diff = toInt(getV(r,H,A_DIFF));
-    const tl   = toInt(getV(r,H,A_TIME));
-    const stem = String(getV(r,H,A_STEM) ?? '').trim();
-    const exp  = getV(r,H,A_EXPL) != null ? String(getV(r,H,A_EXPL)) : undefined;
-    const tags = parseTags(getV(r,H,A_TAGS));
-    const rev  = toInt(getV(r,H,A_REV));
-
-    // 선택지 수집: A/B/C/D → 없으면 choices/options 시도
-    const choices = [];
-    const pushChoice = (keyList, letter) => {
-      const v = getV(r,H,keyList);
-      if (v != null && v !== '') choices.push({ key: letter, text: String(v) });
-    };
-    pushChoice(A_A,'A'); pushChoice(A_B,'B'); pushChoice(A_C,'C'); pushChoice(A_D,'D');
-
-    if (!choices.length) {
-      const raw = getV(r,H,A_CHOICES);
-      if (Array.isArray(raw)) {
-        raw.slice(0,4).forEach((t,idx)=> choices.push({ key:['A','B','C','D'][idx], text: String(t?.text ?? t) }));
-      } else if (typeof raw === 'string' && raw.trim()) {
-        raw.split(/[|]/).slice(0,4).forEach((t,idx)=> choices.push({ key:['A','B','C','D'][idx], text: t.trim() }));
-      }
+// out 배열은 스크립트 위쪽에서 이미 만들어져 있음
+for (const it of out) {
+  let s = String(it.subject || '').trim().toUpperCase();
+  if (!SUBJECT_CODES.includes(s)) {
+    // allowGEN이면 미분류/GEN을 GEN으로, strict면 제외(이미 위에서 GEN→맵핑 수행)
+    if ((process.env.SUBJECT_MODE || 'strict').toLowerCase() === 'allowgen') {
+      s = 'GEN';
+    } else {
+      continue; // strict 모드에서 무과목은 건너뜀
     }
-
-    const ansLetter = normalizeAnswerKey(getV(r,H,A_ANS), getV(r,H,A_ANS), getV(r,H,A_CIDX));
-    if (!stem || choices.length < 2 || !ansLetter) {
-      invalids.push({ row:i, id, reason:'stem/choices/answer invalid' });
-      return;
-    }
-
-    /** 문제 한 건 */
-    const item = {
-      id,
-      subject: subj,                 // undefined 가능(팩에서 미사용할 수도)
-      difficulty: (diff>=1&&diff<=5) ? diff : undefined,
-      timeLimitSec: (tl && tl>0) ? tl : undefined,
-      stem,
-      choices,
-      answerKey: ansLetter,
-      ...(exp   ? { explanation: exp } : {}),
-      ...(tags  ? { tags } : {}),
-      ...(rev!=null ? { rev } : {})
-    };
-
-    // subject strict 모드: 없는/GEN → 매핑 후 저장
-    if (!item.subject) {
-      // 무과목 → 그대로 저장(선택), 혹은 기본 맵핑 원하면 여기서 지정
-    } else if (item.subject === 'GEN' && SUBJECT_MODE === 'strict') {
-      item.subject = GEN_MAP_TO;
-    }
-
-    // timeLimitSec이 없으면 난이도 표로 기본값 부여(선택)
-    if (!item.timeLimitSec && item.difficulty && DIFF_TIME_DEFAULT[item.difficulty]) {
-      item.timeLimitSec = DIFF_TIME_DEFAULT[item.difficulty];
-    }
-
-    out.push(item);
-  });
-
-  if (invalids.length) {
-    console.warn('[quizpack] invalid rows:', invalids.slice(0,5), `... (+${invalids.length-5} more)`);
   }
-
-  const abs = path.resolve(process.cwd(), OUT_PATH);
-  await fs.mkdir(path.dirname(abs), { recursive: true });
-  await fs.writeFile(abs, JSON.stringify(out, null, 2), 'utf8');
-  console.log(`[quizpack] wrote ${OUT_PATH} items=${out.length} invalids=${invalids.length}`);
+  by[s].push(it);
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+// 4) 출력 폴더 생성
+await fs.mkdir(OUT_DIR, { recursive: true });
+
+// 5) 과목별 파일 작성
+const subjectsMap = {};
+const counts = {};
+for (const code of SUBJECT_CODES) {
+  const arr = by[code];
+  counts[code] = arr.length;
+  const fname = `${code}.${hashJson(arr)}.json`;
+  subjectsMap[code] = fname;
+  await fs.writeFile(path.join(OUT_DIR, fname), JSON.stringify(arr, null, 2), 'utf8');
+}
+
+// 6) GEN(일반) 파일(있을 때만)
+let genFile = '';
+if (by.GEN.length) {
+  genFile = `GEN.${hashJson(by.GEN)}.json`;
+  counts.GEN = by.GEN.length;
+  await fs.writeFile(path.join(OUT_DIR, genFile), JSON.stringify(by.GEN, null, 2), 'utf8');
+}
+
+// 7) index.json 작성
+const indexJson = {
+  packId: PACK_ID,
+  version: 1,
+  subjects: subjectsMap,   // { KOR: "KOR.<hash>.json", ... }
+  general: genFile || undefined,
+  counts
+};
+await fs.writeFile(path.join(OUT_DIR, 'index.json'), JSON.stringify(indexJson, null, 2), 'utf8');
+console.log(`[quizpack] wrote split pack: ${OUT_DIR}`);
+
+// 8) (선택) 레거시 단일 파일도 병행 저장 → 클라이언트 수정 없이 즉시 사용 가능
+const abs = path.resolve(process.cwd(), OUT_PATH);
+await fs.mkdir(path.dirname(abs), { recursive: true });
+await fs.writeFile(abs, JSON.stringify(out, null, 2), 'utf8');
+console.log(`[quizpack] wrote legacy single file: ${OUT_PATH} items=${out.length} invalids=${invalids.length}`);
+
