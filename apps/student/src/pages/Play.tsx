@@ -575,7 +575,7 @@ export default function Play() {
     turnsRef.current.push({
       id: q.id, pick, correct: isCorrect, turn,
       subject: resolveSubject(), enemySubject: resolveEnemySubject(),
-      pattern, enemyAct,
+      pattern: patternRef.current, enemyAct,
       playerDmgToEnemy, spikeDmgToPlayer,
       hpAfter: {player: nextPlayer, enemy: nextEnemy},
     });
@@ -617,6 +617,7 @@ export default function Play() {
     }
     setMsg(isCorrect ? '정답!' : '오답 💦');
     setIdx(idx + 1);
+    setPhase('pick');
   }
 
   async function finalizeRun(opts?: { forcedClear?: boolean }) {
