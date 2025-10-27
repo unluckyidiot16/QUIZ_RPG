@@ -409,8 +409,9 @@ export default function Play() {
       const lv = (p as any)?.base?.subLevels?.[s]?.lv ?? 0;
       const qNew = pickQuestionForSubject(s, qpools, {
         level: lv,
+        avoidIds: usedIds,
+        rng: () => rngRef.current.next(),   // ✅ 주입
         // 필요 시 난이도 커브 주입: diffSelector: ({level}) => Math.min(5, Math.max(1, Math.round(1 + level/5)))
-          avoidIds: usedIds,
       });
       if (qNew) {
         setUsedIds(prev => new Set(prev).add(qNew.id));

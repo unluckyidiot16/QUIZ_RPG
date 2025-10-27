@@ -20,18 +20,43 @@ export type QuestionPools = {
   general: QuizItem[]; // subject가 없거나 'GEN'인 문제
 };
 
-// 시트/팩에서 읽어온 배열을 과목별 풀로 변환
+// 추가: 별칭 테이블(필요 시 확장)
+const SUBJECT_SYNONYM: Record<string, Subject> = {
+  '국어': 'KOR', 'korean': 'KOR',
+  '영어': 'ENG', 'english': 'ENG',
+  '수학': 'MATH', 'math': 'MATH',
+  '과학': 'SCI', 'science': 'SCI',
+  '사회': 'SOC', 'social': 'SOC',
+  '역사': 'HIST', 'history': 'HIST',
+};
+
+function canonSubject(x: unknown, SUBJECTS_LIST: readonly Subject[]): Subject | 'GEN' | '' {
+  if (x == null) return '';
+  const s = String(x).trim();
+  const u = s.toUpperCase();
+
+  // 정식 코드 매칭
+  if ((SUBJECTS_LIST as readonly string[]).includes(u)) return u as Subject;
+
+  // 별칭 매핑
+  const syn = SUBJECT_SYNONYM[s.toLowerCase()];
+  if (syn) return syn;
+
+  // 공통/일반
+  if (u === 'GEN' || u === 'GENERAL' || u === 'COMMON' || u === 'ALL') return 'GEN';
+  return '';
+}
+
 export function buildQuestionPools(items: QuizItem[], SUBJECTS: readonly Subject[]): QuestionPools {
   const bySubject = Object.fromEntries(SUBJECTS.map(s => [s, [] as QuizItem[]])) as Record<Subject, QuizItem[]>;
   const general: QuizItem[] = [];
 
   for (const it of items || []) {
-    const subj = String(it.subject || '').toUpperCase() as Subject | 'GEN' | '';
-    if (subj && (SUBJECTS as readonly string[]).includes(subj)) {
-      bySubject[subj as Subject].push(it);
+    const m = canonSubject(it.subject, SUBJECTS);
+    if (m && m !== 'GEN' && (SUBJECTS as readonly string[]).includes(m)) {
+      bySubject[m as Subject].push(it);
     } else {
-      // subject 없음, 또는 GEN → 일반 풀
-      general.push(it);
+      general.push(it); // 없음/GEN/미매칭 → general
     }
   }
   return { bySubject, general };
@@ -44,20 +69,13 @@ export type DiffSelector = (params: { level: number, subject: Subject }) => numb
 export function pickQuestionForSubject(
   subject: Subject,
   pools: QuestionPools,
-  opts?: {
-    level?: number;          // 현재 과목 레벨(없어도 동작)
-    diffSelector?: DiffSelector; // 주입 가능
-    avoidIds?: Set<string>;  // 중복 방지(선택)
-    rng?: () => number;      // PRNG 주입(선택), 기본 Math.random
-  }
+  opts?: { level?: number; diffSelector?: DiffSelector; avoidIds?: Set<string>; rng?: () => number }
 ): QuizItem | null {
   const rng = opts?.rng ?? Math.random;
-  const level = Math.max(0, Math.floor(opts?.level ?? 0));
 
-  // 1) 후보 풀: 해당 과목 + 일반 섞기
+  // 1) 후보 풀 결합
   const subjectPool = pools.bySubject[subject] ?? [];
   let candidates = subjectPool.length ? [...subjectPool, ...pools.general] : [...pools.general];
-
   if (!candidates.length) return null;
 
   // 2) 중복 회피
@@ -66,7 +84,8 @@ export function pickQuestionForSubject(
     if (filtered.length) candidates = filtered;
   }
 
-  // 3) 난이도 타겟 필터(주입된 diffSelector가 있을 때만)
+  // 3) 난이도 타깃(있을 때만)
+  const level = Math.max(0, Math.floor(opts?.level ?? 0));
   const target = opts?.diffSelector?.({ level, subject });
   if (Number.isFinite(target)) {
     const t = Math.round(target!);
@@ -74,6 +93,13 @@ export function pickQuestionForSubject(
     if (near.length) candidates = near;
   }
 
-  // 4) 랜덤 픽
+  // 4) 살짝 셔플(편향 감소)
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+
+  // 5) 최종 픽
   return candidates[Math.floor(rng() * candidates.length)] || null;
 }
+
