@@ -102,7 +102,7 @@ export function migratePlayerSchema(raw: any){
 
 export function loadPlayer(): PlayerState {
   try {
-    const raw = localStorage.getItem('qd:player');
+    const raw = localStorage.getItem(LS_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
 
     // ▼ 마이그레이션 적용
@@ -110,14 +110,14 @@ export function loadPlayer(): PlayerState {
 
     // 변경 사항이 있으면 저장
     if (JSON.stringify(parsed) !== JSON.stringify(migrated)) {
-      localStorage.setItem('qd:player', JSON.stringify(migrated));
+      localStorage.setItem(LS_KEY, JSON.stringify(migrated));
     }
 
     return migrated as PlayerState;
   } catch {
     // 완전 파손 시 기본값 생성
     const fresh = migratePlayerSchema({});
-    localStorage.setItem('qd:player', JSON.stringify(fresh));
+    localStorage.setItem(LS_KEY, JSON.stringify(fresh));
     return fresh as PlayerState;
   }
 }

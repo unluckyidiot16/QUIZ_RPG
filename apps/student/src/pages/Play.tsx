@@ -19,6 +19,7 @@ import { applyDrops } from '../game/loot';
 import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
 import { staticURL, appPath } from '../shared/lib/urls';
 import { RunSummary } from '../core/run.types'
+import {PLAY_XP_PER_CORRECT, XP_ON_WRONG, STREAK_BONUS_ENABLED, STREAK_BONUS_TABLE, TIME_BONUS_ENABLED, TIME_BONUS_THRESH_MS, TIME_BONUS_XP} from '../game/combat/constants';
 
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
@@ -146,6 +147,8 @@ export default function Play() {
   const q = questions[idx] || null;
 
   const turnsRef = useRef<TurnLog[]>([]);
+  const qShownAtRef = useRef<number | null>(null); // 문항 표출 시각
+  const streakRef = useRef(0);
   const startedRef = useRef(false);
   const startAtRef = useRef<number>(0);
   const proofRef = useRef<any>(null); // 동적 import 대응
@@ -323,6 +326,7 @@ export default function Play() {
   useEffect(() => {
     if (q && proofRef.current?.log) {
       proofRef.current.log({type: 'q_shown', id: q.id, idx}).catch?.(() => {
+        qShownAtRef.current = Date.now();
       });
     }
   }, [q, idx]);
@@ -371,17 +375,23 @@ export default function Play() {
     // TODO: pickQuestionForSubject(s)로 과목별 문제를 골라 세팅(팩에 과목 태그가 들어가면 적용)
     setPhase('quiz');
   }
+
+  let streak = 0;
   
   // 5) 답안 처리
   async function onPick(pick: Choice['key']) {
     if (!q) return;
     const isCorrect = (pick === q.answerKey);
+    const subj  = resolveSubject();
     const turn = turnRef.current;
     const rng = rngRef.current;
 
     // 1) 적 행동(오답 시 적용될 피해, 실드/스파이크)
     const enemyAct = actByPattern(pattern, {rng: () => rng.next(), turn});
 
+    let streak = 0; // 컴포넌트 상태로 관리
+    let delta = 0;
+    
     // 2) 플레이어 공격/스파이크 "먼저" 계산
     let playerDmgToEnemy = 0;
     let spikeDmgToPlayer = 0;
@@ -389,13 +399,11 @@ export default function Play() {
       // 1) 과목별 공격력 선택
       const subj  = resolveSubject();
       const esubj = resolveEnemySubject();
-      const atkMap: Readonly<Record<Subject, number>> = (combatStats?.subAtk ?? {}) as any;
-      const atk = atkMap[subj] ?? 1;
-
+      const atk = combatStats?.subAtk?.[subj] ?? 1;
+      
       // ✅ 정답 시 과목 경험치 지급
       // ⚠️ 부족 데이터: “정답 1개당 지급 XP” 정책값(예: 5, 10 등)
       //  - 아래 상수는 임시 이름입니다. 팀이 원하는 값으로 player.ts(혹은 constants)에서 export해 사용하세요.
-      const PLAY_XP_PER_CORRECT = /* TODO: 결정값 */ 5;
       const p = loadPlayer();
       grantSubjectXp(p, subj, PLAY_XP_PER_CORRECT);
       savePlayer(p);
@@ -423,6 +431,7 @@ export default function Play() {
 
       // === 태그 표시(우선순위: SHIELD > WEAK > RESIST) ===
       let tagLabel: TagLabel | null = null;
+      
       if (enemyAct.shieldActive) {
         // 실드가 있으면 그 사실을 우선 알림
              tagLabel = 'SHIELD';
@@ -440,7 +449,36 @@ export default function Play() {
              }
          }
       if (tagLabel && thisLatch === tagLatchRef.current) showTag(tagLabel);
-      
+
+      // ✅ 정답 XP = 기본 + (옵션)연속 + (옵션)시간
+      let delta = PLAY_XP_PER_CORRECT;
+      if (STREAK_BONUS_ENABLED) {
+        streakRef.current += 1;
+        delta += STREAK_BONUS_TABLE[Math.min(streakRef.current, STREAK_BONUS_TABLE.length - 1)];
+      } else {
+        streakRef.current = 0;
+      }
+      if (TIME_BONUS_ENABLED && qShownAtRef.current != null) {
+        const elapsed = Date.now() - qShownAtRef.current;
+        if (elapsed <= TIME_BONUS_THRESH_MS) delta += TIME_BONUS_XP;
+      }
+      if (delta !== 0) {
+        grantSubjectXp(p, subj, delta);
+        savePlayer(p);
+        // 전투 스탯 즉시 갱신(공격력 반영)
+        try {
+          const items = await loadItemDB('/packs/items.v1.json');
+          setCombatStats(deriveBattleStats(items, loadPlayer()));
+        } catch {}
+      }
+    }else {
+      // ⛔ 오답: 연속 보너스 리셋 + (옵션)감점
+      streakRef.current = 0;
+      if (XP_ON_WRONG) {
+        const p = loadPlayer();
+        grantSubjectXp(p, subj, XP_ON_WRONG); // 음수 가능
+        savePlayer(p);
+      }
     }
 
     // 3) 피해를 계산한 "후에" HP 적용
