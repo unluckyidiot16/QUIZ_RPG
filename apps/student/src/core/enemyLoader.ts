@@ -1,5 +1,5 @@
 // core/enemyLoader.ts
-import { ENEMIES, type EnemyDef } from '../game/combat/enemy';
+import { ENEMIES, type EnemyDef } from './enemy';
 
 // 런타임 소스 선택: 기본 = 하드코딩, 옵션 = JSON
 export async function loadEnemyDB(jsonUrl?: string): Promise<Record<string, EnemyDef>> {
