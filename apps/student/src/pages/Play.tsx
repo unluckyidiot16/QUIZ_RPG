@@ -207,6 +207,9 @@ export default function Play() {
   const [options, setOptions] = useState<Subject[]>([]);
   const [subject, setSubject] = useState<Subject>('KOR');
 
+  const hasTimer =
+    (q?.timeLimitSec && q.timeLimitSec > 0) || TIME_BONUS_ENABLED;
+  
   const FPS_BY_STATE: Record<EnemyState, number> = {
     Move: 8,
     Attack: 8,
@@ -361,20 +364,29 @@ export default function Play() {
     if (!q) return;
     qShownAtRef.current = Date.now();
     try { proofRef.current?.log?.({ type: 'q_shown', id: q.id, idx }); } catch {}
-    if (!TIME_BONUS_ENABLED || phase !== 'quiz') return;
-    const totalMs = (q.timeLimitSec && q.timeLimitSec>0)
-      ? q.timeLimitSec * 1000
-      : TIME_BONUS_THRESH_MS;
+
+    if (phase !== 'quiz') return;
+
+    const totalMs =
+      (q.timeLimitSec && q.timeLimitSec > 0)
+        ? q.timeLimitSec * 1000
+        : (TIME_BONUS_ENABLED ? TIME_BONUS_THRESH_MS : 0);
+
+    if (totalMs <= 0) { setTimeLeftMs(0); return; }
+
     setTimeLeftMs(totalMs);
+
     const tick = () => {
       const shown = qShownAtRef.current || Date.now();
       const left = Math.max(0, totalMs - (Date.now() - shown));
       setTimeLeftMs(left);
     };
     tick();
+
     const h = window.setInterval(tick, 100);
     return () => window.clearInterval(h);
   }, [q, idx, phase]);
+
 
   // 4) 키보드 입력(ABCD)
   useEffect(() => {
@@ -415,6 +427,10 @@ export default function Play() {
     setOptions(opts);
     setPhase('pick');
     }, [stage, idx, runSeed]);
+
+  useEffect(() => {
+    if (phase !== 'quiz') setTimeLeftMs(0);
+  }, [phase]);
 
   async function chooseSubject(s: Subject){
     setSubject(s);
@@ -848,8 +864,15 @@ export default function Play() {
         ) : (
           // 문제 풀이 화면
           <div className="p-4 rounded bg-slate-800">
-            {(TIME_BONUS_ENABLED || (q?.timeLimitSec && q.timeLimitSec>0)) && (
-              <TimerBar ms={timeLeftMs} totalMs={(q?.timeLimitSec ? q.timeLimitSec*1000 : TIME_BONUS_THRESH_MS)} />
+            {hasTimer && (
+              <TimerBar
+                ms={timeLeftMs}
+                totalMs={
+                  (q?.timeLimitSec && q.timeLimitSec > 0)
+                    ? q.timeLimitSec * 1000
+                    : TIME_BONUS_THRESH_MS
+                }
+              />
             )}
             <div className="font-medium whitespace-pre-wrap">{q?.stem}</div>
             <div className="grid gap-2 mt-3">
