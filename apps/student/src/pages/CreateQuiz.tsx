@@ -34,10 +34,6 @@ type Question = {
   tags?: string[];
 };
 
-// 재현성 불필요: 시간 기반 RNG
-const rngRef = useRef(makeRng(String(Date.now()))); 
-const nextRand = () => rngRef.current?.next?.() ?? Math.random();
-
 function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
   if (typeof answerKey === 'string' && /^[ABCD]$/.test(answerKey)) return answerKey as any;
   if (typeof answer === 'string' && /^[ABCD]$/.test(answer)) return answer as any;
@@ -101,6 +97,10 @@ function normalizeQuestion(raw: any, i: number): Question | null {
 export default function CreateQuiz(){
   const nav = useNavigate();
 
+  // 재현성 불필요: 시간 기반 RNG
+  const rngRef = useRef(makeRng(String(Date.now())));
+  const nextRand = () => rngRef.current?.next?.() ?? Math.random();
+  
   // 진행/점수
   const [idx, setIdx] = useState(0);
   const [earned, setEarned] = useState<Stats>({KOR:0,ENG:0,MATH:0,SCI:0,SOC:0,HIST:0});
