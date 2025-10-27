@@ -1,0 +1,20 @@
+{
+  "packId": "SocPack",
+  "version": 1,
+  "subjects": {
+    "KOR": "KOR.97d170e1.json",
+    "ENG": "ENG.97d170e1.json",
+    "MATH": "MATH.97d170e1.json",
+    "SCI": "SCI.97d170e1.json",
+    "SOC": "SOC.19f2a468.json",
+    "HIST": "HIST.97d170e1.json"
+  },
+  "counts": {
+    "KOR": 0,
+    "ENG": 0,
+    "MATH": 0,
+    "SCI": 0,
+    "SOC": 5,
+    "HIST": 0
+  }
+}

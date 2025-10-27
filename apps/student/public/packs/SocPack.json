@@ -1,0 +1,152 @@
+[
+  {
+    "id": "SOC-001",
+    "stem": "시장경제에 대한 설명으로 옳은 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "가격은 정부가 일괄 결정한다"
+      },
+      {
+        "key": "B",
+        "text": "가격은 전적으로 우연히 정해진다"
+      },
+      {
+        "key": "C",
+        "text": "가격은 수요와 공급에 의해 형성된다"
+      },
+      {
+        "key": "D",
+        "text": "가격은 항상 일정하다"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "시장에서는 수요·공급이 가격 형성",
+    "subject": "SOC",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "tags": [
+      "soc|economy|market"
+    ]
+  },
+  {
+    "id": "SOC-002",
+    "stem": "대한민국의 수도는",
+    "choices": [
+      {
+        "key": "A",
+        "text": "부산"
+      },
+      {
+        "key": "B",
+        "text": "인천"
+      },
+      {
+        "key": "C",
+        "text": "서울"
+      },
+      {
+        "key": "D",
+        "text": "대전"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "대한민국의 수도는 서울",
+    "subject": "SOC",
+    "difficulty": 1,
+    "timeLimitSec": 25,
+    "tags": [
+      "soc|korea|geo"
+    ]
+  },
+  {
+    "id": "SOC-003",
+    "stem": "대한민국 국회의 주요 기능은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "사법"
+      },
+      {
+        "key": "B",
+        "text": "행정"
+      },
+      {
+        "key": "C",
+        "text": "입법"
+      },
+      {
+        "key": "D",
+        "text": "감사"
+      }
+    ],
+    "answerKey": "C",
+    "explanation": "국회는 입법 기관",
+    "subject": "SOC",
+    "difficulty": 2,
+    "timeLimitSec": 20,
+    "tags": [
+      "soc|civics|assembly"
+    ]
+  },
+  {
+    "id": "SOC-004",
+    "stem": "다음 중 세금의 주요 목적에 해당하는 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "사적 이익 극대화"
+      },
+      {
+        "key": "B",
+        "text": "공공재 공급과 소득 재분배"
+      },
+      {
+        "key": "C",
+        "text": "개인 저축 보장"
+      },
+      {
+        "key": "D",
+        "text": "물가 고정"
+      }
+    ],
+    "answerKey": "B",
+    "explanation": "세금은 공공재와 재분배 재원",
+    "subject": "SOC",
+    "difficulty": 3,
+    "timeLimitSec": 15,
+    "tags": [
+      "soc|tax|public"
+    ]
+  },
+  {
+    "id": "SOC-005",
+    "stem": "다음 중 기본권이 아닌 것은",
+    "choices": [
+      {
+        "key": "A",
+        "text": "자유권"
+      },
+      {
+        "key": "B",
+        "text": "평등권"
+      },
+      {
+        "key": "C",
+        "text": "참정권"
+      },
+      {
+        "key": "D",
+        "text": "사법권"
+      }
+    ],
+    "answerKey": "D",
+    "explanation": "사법권은 국가 권력 작용",
+    "subject": "SOC",
+    "difficulty": 4,
+    "timeLimitSec": 12,
+    "tags": [
+      "soc|rights|civics"
+    ]
+  }
+]
