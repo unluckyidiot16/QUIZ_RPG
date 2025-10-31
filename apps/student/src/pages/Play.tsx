@@ -222,6 +222,8 @@ export default function Play() {
   const rngRef = useRef<ReturnType<typeof makeRng>>(makeRng(runSeed));
   const turnRef = useRef(1);
 
+  const nextRand = () => rngRef.current?.next?.() ?? Math.random();
+  
   const enemyDef = React.useMemo(() => {
     // stage/diff 준비되면 스테이지 규칙으로, 아니면 쿼리/기본값 사용
     if (stage && diff) {
@@ -303,7 +305,6 @@ export default function Play() {
 
   const ALL_PATTERNS: PatternKey[] = ['Aggressive','Shield','Spiky'];
   const patternRef = useRef<PatternKey>(initialPattern);
-  const nextRand = () => rngRef.current?.next?.() ?? Math.random();
 
 
   // 간단 HP Bar(임시)
