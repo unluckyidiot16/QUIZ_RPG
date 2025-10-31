@@ -173,8 +173,9 @@ export default function Play() {
     window.setTimeout(() => setShake(false), ms);
   };
   const pushDamage = (val: number) => {
+    const norm = Math.max(0, Math.round(val));
     const id = ++popIdRef.current;
-    setPops((a) => [...a, {id, val}]);
+    setPops((a) => [...a, {id, val: norm}]);
     window.setTimeout(() => setPops((a) => a.filter((p) => p.id !== id)), 650);
   };
 
@@ -265,13 +266,15 @@ export default function Play() {
     looping
   );
 
-  const patParam = search.get('pat') as string | null;
-  const asPat = (p: any): p is PatternKey => (p === 'Aggressive' || p === 'Shield' || p === 'Spiky');
-  const lockPattern = asPat(patParam); // URL로 지정 시 고정
-  const initialPattern: PatternKey =
-    asPat(patParam) ? patParam
-      : asPat((enemyDef as any).pattern) ? (enemyDef as any).pattern
-        : 'Aggressive';
+  const patParam = (search.get('pat') || '').toString();
+  const asPat = (p: any): p is PatternKey =>
+    p === 'Aggressive' || p === 'Shield' || p === 'Spiky';
+  const randomizePattern = patParam.toLowerCase() === 'rand';
+  const lockPattern = !randomizePattern; // 기본 고정, rand일 때만 false
+  const initialPattern: PatternKey = asPat(patParam)
+    ? (patParam as PatternKey)
+    : (asPat((enemyDef as any).pattern) ? (enemyDef as any).pattern : 'Aggressive');
+
   const ALL_PATTERNS: PatternKey[] = ['Aggressive','Shield','Spiky'];
   const patternRef = useRef<PatternKey>(initialPattern);
 
@@ -354,8 +357,11 @@ export default function Play() {
     });
 
     // 안전: subject 필터(섞여 들어와도 해당 과목만)
-    const onlyThis = clean.filter(q => String(q.subject ?? '').toUpperCase() === s);
-
+    const onlyThis = clean.filter(q => {
+      const subj = String(q.subject ?? '').toUpperCase();
+      return subj === s || subj === 'GEN' || subj === 'GENERAL' || subj === 'COMMON' || subj === 'ALL';
+    });
+    
     subjectBankRef.current[s] = onlyThis;
     setSubjectBank(prev => ({ ...prev, [s]: onlyThis }));
     return onlyThis;
@@ -818,7 +824,7 @@ export default function Play() {
                   willChange: 'transform, opacity',
                 }}
               >
-                -{p.val}
+                {p.val === 0 ? '0' : `-${p.val}`}
               </div>
             ))}
             {/* 태그 팝업: WEAK!/RESIST!/SHIELD */}

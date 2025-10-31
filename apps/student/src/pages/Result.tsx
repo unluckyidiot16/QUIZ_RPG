@@ -17,7 +17,14 @@ export default function Result() {
   const [rewardOpen, setRewardOpen] = useState(false);
   const [rewardBag, setRewardBag] = useState<Record<string, number>>({});
   const [items, setItems] = useState<Record<string, ItemDef>>({});
-  
+
+  const rewardList = useMemo(() => {
+    try {
+      return Object.entries(rewardBag)
+        .map(([id, count]) => ({ id, count: Math.max(0, Number(count)||0), def: items[id] }))
+        .filter(x => x.count > 0 && x.def);
+    } catch { return []; }
+  }, [rewardBag, items]);
   
   // 오프라인 재시도 큐 가동
   useEffect(() => { initQueue(finishDungeon); }, []);
@@ -196,6 +203,48 @@ export default function Result() {
         <div>클리어: {data.cleared ? '성공' : '실패'}</div>
         <div>턴 수: {data.turns}</div>
         <div>소요 시간(초): {data.durationSec}</div>
+
+        {/* --- 드랍 아이템 프리뷰 그리드 --- */}
+        {rewardList.length > 0 && (
+          <div className="mt-6 bg-slate-800 rounded p-4">
+            <div className="mb-2 text-lg font-semibold">획득 아이템</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {rewardList.map(x => {
+                const it = x.def!;
+                // 인벤토리 카드 스타일을 최대한 재사용
+                const borderByRarity = it.rarity==='SSR' ? 'border-fuchsia-400'
+                  : it.rarity==='SR' ? 'border-violet-400'
+                    : it.rarity==='R'  ? 'border-sky-400'
+                      : 'border-white/10';
+                return (
+                  <div key={it.id} className="border rounded-xl p-2 bg-white/5">
+                    <div className="text-sm font-medium truncate">{it.name}</div>
+                    <div className={`mt-1 rounded-xl overflow-hidden border ${borderByRarity} bg-black/20`}>
+                      <img
+                        src={it.thumb}
+                        alt={it.name}
+                        loading="lazy"
+                        className="w-full aspect-square object-contain pointer-events-none select-none"
+                      />
+                    </div>
+                    <div className="mt-1 text-xs opacity-70">{it.slot} · {it.rarity}</div>
+                    <div className="mt-1 text-xs">x {x.count}</div>
+                    {/* 바로 장착 */}
+                    {it.slot && (
+                      <button
+                        className="mt-2 w-full px-2 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-500"
+                        onClick={() => handleEquip(it.id)}
+                      >
+                        장착
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
 
         <div className="pt-2 flex gap-2">
           <button
