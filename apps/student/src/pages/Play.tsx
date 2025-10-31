@@ -16,7 +16,8 @@ import { SUBJECTS, type Subject } from '../core/char.types';
 import type { QuizItem } from '../game/quiz/picker';
 import { applyDrops } from '../game/loot'; 
 import { selectSubjectsForTurn, getStageRuntime, recordStageClear } from '../game/stage'; // 그대로 사용 
-import { getStageFromQuery as getStageJson, getDifficulty, stageDropTable as stageDropByDiff, pickEnemyForTurn} from '../game/stage.loader';import { staticURL, appPath } from '../shared/lib/urls';
+import { getStageFromQuery as getStageJson, getDifficulty, stageDropTableByDiff as stageDropByDiff, pickEnemyForTurn} from '../game/stage.loader';
+import { staticURL, appPath } from '../shared/lib/urls';
 import { RunSummary } from '../core/run.types'
 import {MAX_HP, PLAYER_CRIT_CHANCE, PLAY_XP_PER_CORRECT, XP_ON_WRONG, STREAK_BONUS_ENABLED, STREAK_BONUS_TABLE, TIME_BONUS_ENABLED, TIME_BONUS_THRESH_MS, TIME_BONUS_XP} from '../game/combat/constants';
 

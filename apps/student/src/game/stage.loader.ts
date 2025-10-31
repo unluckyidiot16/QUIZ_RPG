@@ -69,6 +69,6 @@ export function makeDiffSelector(st: StageJson, diff: Difficulty){
 }
 
 // 난이도별 드랍 테이블
-export function stageDropTable(st: StageJson, diff: Difficulty): DropTable | undefined {
+export function stageDropTableByDiff(st: StageJson, diff: Difficulty): DropTable | undefined {
   return st.difficulties?.[diff]?.drops;
 }
