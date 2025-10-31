@@ -223,17 +223,23 @@ export default function Play() {
   const turnRef = useRef(1);
 
   const nextRand = () => rngRef.current?.next?.() ?? Math.random();
+
+  // ▶ 전투 전체에서 1회 고정되는 enemyId 계산
+  const fixedEnemyId = React.useMemo(() => {
+    // URL에 명시된 enemy가 있으면 우선
+    const fromUrl = search.get('enemy');
+    if (fromUrl) return fromUrl;
+    if (!stage || !diff) return 'E01';
+    // runSeed + stage + diff로 고정 RNG 생성 (nextRand 사용 금지)
+    const seeded = makeRng(`${runSeed}:${stage.id}:${diff}`);
+    return pickEnemyForTurn(stage, diff, () => seeded.next());
+    }, [stage?.id, diff, runSeed, search.toString()]);
   
   const enemyDef = React.useMemo(() => {
-    // stage/diff 준비되면 스테이지 규칙으로, 아니면 쿼리/기본값 사용
-    if (stage && diff) {
-      const id = pickEnemyForTurn(stage, diff, () => nextRand());
-      const qs2 = new URLSearchParams(search);
-      qs2.set('enemy', id);
-      return pickEnemyByQuery(qs2);
-    }
-    return pickEnemyByQuery(search);
-    }, [stage, diff, search.toString(), runSeed, idx]);
+    const qs2 = new URLSearchParams(search);
+    qs2.set('enemy', fixedEnemyId);
+    return pickEnemyByQuery(qs2);
+    }, [fixedEnemyId, search.toString()]);
   
   const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
   const [options, setOptions] = useState<Subject[]>([]);

@@ -35,13 +35,22 @@ export default function Lobby() {
           type SkillColor = 'blank'|'blue'|'dark'|'green'|'red'|'yellow';
            const color: SkillColor = subj ? SUBJECT_TO_COLOR[subj] : 'blank';
           return (
-            <Link key={st.id} to={`/play?stage=${st.id}&enemy=${st.enemyId}${subj ? `&esubj=${subj}` : ''}`} className="p-4 rounded-xl ...">
+            <Link
+              key={st.id}
+              to={`/play?stage=${st.id}&enemy=${st.enemyId}${subj ? `&esubj=${subj}` : ''}`}
+              className="
+    block p-4 rounded-xl
+    border border-white/10 bg-slate-900/60
+    hover:border-white/20 hover:bg-slate-900/80
+    transition shadow-sm
+  "
+            >
               <div className="flex items-center justify-between">
                 <div className="text-base font-medium">{st.name}</div>
                 <span
                   className="inline-block w-2.5 h-2.5 rounded-full"
                   style={{ background: SKILL_HEX[color] }}
-                 />
+                />
               </div>
               <div className="mt-1 text-xs opacity-70">
                 적: {enemy?.name ?? '???'} · 주과목: {subj ?? '—'}
