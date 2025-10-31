@@ -303,9 +303,8 @@ export default function Play() {
 
   const ALL_PATTERNS: PatternKey[] = ['Aggressive','Shield','Spiky'];
   const patternRef = useRef<PatternKey>(initialPattern);
-
-
   const nextRand = () => rngRef.current?.next?.() ?? Math.random();
+
 
   // 간단 HP Bar(임시)
   const HPBar = ({value, max, label}: { value: number; max: number; label: string }) => {
