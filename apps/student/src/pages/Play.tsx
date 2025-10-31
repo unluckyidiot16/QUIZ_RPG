@@ -14,11 +14,12 @@ import { subjectMultiplier, calcDamage, SUBJECT_TO_COLOR, SKILL_HEX } from '../c
 import { loadPlayer, loadItemDB, deriveBattleStats, grantSubjectXp, savePlayer } from '../core/player';
 import { SUBJECTS, type Subject } from '../core/char.types';
 import type { QuizItem } from '../game/quiz/picker';
-import { applyDrops } from '../game/loot';
-import { getStageFromQuery, selectSubjectsForTurn, getStageRuntime, recordStageClear, stageDropTable } from '../game/stage';
-import { staticURL, appPath } from '../shared/lib/urls';
+import { applyDrops } from '../game/loot'; 
+import { selectSubjectsForTurn, getStageRuntime, recordStageClear } from '../game/stage'; // 그대로 사용 
+import { getStageFromQuery as getStageJson, getDifficulty, stageDropTable as stageDropByDiff, pickEnemyForTurn} from '../game/stage.loader';import { staticURL, appPath } from '../shared/lib/urls';
 import { RunSummary } from '../core/run.types'
 import {MAX_HP, PLAYER_CRIT_CHANCE, PLAY_XP_PER_CORRECT, XP_ON_WRONG, STREAK_BONUS_ENABLED, STREAK_BONUS_TABLE, TIME_BONUS_ENABLED, TIME_BONUS_THRESH_MS, TIME_BONUS_XP} from '../game/combat/constants';
+
 
 type Choice = { key: 'A'|'B'|'C'|'D'; text: string };
 type Question = {
@@ -59,13 +60,12 @@ type TurnLog = {
   enemySubject?: Subject;
 };
 
-function resolvePackId(search: URLSearchParams) {
+function resolvePackId(search: URLSearchParams, stage?: any) {
   // 1) URL 쿼리 우선
   const p = search.get('pack');
   if (p) return p;
   // 2) 스테이지 기본값
-  const st = getStageFromQuery(search);
-  return st.packId || 'sample';
+  return stage?.packId || 'sample';
 }
 
 function normalizeAnswerKey(answerKey?: any, answer?: any, correctIndex?: any): Choice['key'] | null {
@@ -144,8 +144,21 @@ export default function Play() {
 
   const location = useLocation();
   const search = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const pack   = useMemo(() => resolvePackId(search), [search]);
-  const stage  = useMemo(() => getStageFromQuery(search), [search]);
+  const [stage, setStage] = useState<any | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const st = await getStageJson(search);
+      if (alive) setStage(st);
+    })();
+    return () => { alive = false; };
+    }, [search]);
+  
+  const diff = useMemo(
+    () => stage ? (getDifficulty?.(search, stage) ?? stage.defaultDifficulty ?? 'NORMAL') : 'NORMAL',
+    [search, stage]
+  );
+  const pack = useMemo(() => resolvePackId(search, stage || undefined), [search, stage]);
   const [enemyState, setEnemyState] = useState<EnemyState>('Move');
   const attackTimerRef = useRef<number | null>(null);
   const hitTimerRef = useRef<number | null>(null);
@@ -202,10 +215,22 @@ export default function Play() {
   const [enemyHP, setEnemyHP] = useState(MAX_HP);
   const [playerMaxHP, setPlayerMaxHP] = useState<number>(MAX_HP);
   const [enemyMaxHP, setEnemyMaxHP] = useState<number>(MAX_HP);
-  const enemyDef = React.useMemo(
-    () => pickEnemyByQuery(search),
-    [search.toString()] // 쿼리가 바뀔 때만 다시 계산
-  );
+
+  // 재현성 불필요: 시간 기반 시드로 고정
+  const [runSeed] = useState<string>(() => String(Date.now()));
+  const rngRef = useRef<ReturnType<typeof makeRng>>(makeRng(runSeed));
+  const turnRef = useRef(1);
+
+  const enemyDef = React.useMemo(() => {
+    // stage/diff 준비되면 스테이지 규칙으로, 아니면 쿼리/기본값 사용
+    if (stage && diff) {
+      const id = pickEnemyForTurn(stage, diff, () => nextRand());
+      const qs2 = new URLSearchParams(search);
+      qs2.set('enemy', id);
+      return pickEnemyByQuery(qs2);
+    }
+    return pickEnemyByQuery(search);
+    }, [stage, diff, search.toString(), runSeed, idx]);
   
   const [phase, setPhase] = useState<'pick'|'quiz'>('pick');
   const [options, setOptions] = useState<Subject[]>([]);
@@ -278,10 +303,6 @@ export default function Play() {
   const ALL_PATTERNS: PatternKey[] = ['Aggressive','Shield','Spiky'];
   const patternRef = useRef<PatternKey>(initialPattern);
 
-// 재현성 불필요: 시간 기반 시드로 고정
-  const [runSeed] = useState<string>(() => String(Date.now()));
-  const rngRef = useRef<ReturnType<typeof makeRng>>(makeRng(runSeed));
-  const turnRef = useRef(1);
 
   const nextRand = () => rngRef.current?.next?.() ?? Math.random();
 
@@ -429,8 +450,8 @@ export default function Play() {
   }, []);
 
   useEffect(()=> {
+    if (!stage) return; // ✅ stage 준비 전엔 대기
     const t = turnRef.current;
-    // 시간 시드 + 턴 + 한 번 더 섞기(충돌 방지)
     const seedForTurn = `${runSeed}:${t}:${Math.floor(nextRand() * 1e9)}`;
     const opts = selectSubjectsForTurn(stage, t, seedForTurn);
     setOptions(opts);
@@ -682,7 +703,10 @@ export default function Play() {
 
     try {
       const { clearCount } = getStageRuntime(stage.id);
-      const rewards = await applyDrops(stageDropTable(stage), `${stage.id}:${clearCount}`);
+      const rewards = await applyDrops(
+        stageDropByDiff?.(stage, diff) ?? /* 폴백 */ { seedBase: stage.id, pulls: 1, entries: [] },
+        `${stage.id}:${diff}:${clearCount}`
+      );
       if (cleared) recordStageClear(stage.id);
       localStorage.setItem('qd:lastRewards', JSON.stringify(rewards ?? {}));
       localStorage.setItem('qd:lastStage', stage.id);

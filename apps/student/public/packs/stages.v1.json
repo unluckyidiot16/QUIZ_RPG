@@ -1,0 +1,383 @@
+{
+  "ST01": {
+    "id": "ST01",
+    "name": "초원 1",
+    "packId": "sample",
+    "subjectPool": [
+      "KOR",
+      "ENG",
+      "MATH",
+      "SCI",
+      "SOC",
+      "HIST"
+    ],
+    "defaultDifficulty": "NORMAL",
+    "difficulties": {
+      "EASY": {
+        "enemyPool": [
+          {
+            "id": "E01",
+            "w": 7
+          },
+          {
+            "id": "E02",
+            "w": 3
+          }
+        ],
+        "question": {
+          "min": 1,
+          "max": 2
+        },
+        "drops": {
+          "seedBase": "ST01E",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_iron_sword",
+              "weight": 6
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 3
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 1
+            }
+          ]
+        }
+      },
+      "NORMAL": {
+        "enemyPool": [
+          {
+            "id": "E01",
+            "w": 4
+          },
+          {
+            "id": "E02",
+            "w": 6
+          }
+        ],
+        "question": {
+          "min": 2,
+          "max": 3
+        },
+        "drops": {
+          "seedBase": "ST01N",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_iron_sword",
+              "weight": 5
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 3
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 2
+            }
+          ]
+        }
+      },
+      "HARD": {
+        "enemyPool": [
+          {
+            "id": "E02",
+            "w": 7
+          },
+          {
+            "id": "E03",
+            "w": 3
+          }
+        ],
+        "question": {
+          "min": 3,
+          "max": 5
+        },
+        "drops": {
+          "seedBase": "ST01H",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_knight_blade",
+              "weight": 2
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 5
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 3
+            }
+          ]
+        }
+      }
+    }
+  },
+  "ST02": {
+    "id": "ST02",
+    "name": "숲 2",
+    "packId": "sample",
+    "subjectPool": [
+      "KOR",
+      "ENG",
+      "MATH",
+      "SCI",
+      "SOC",
+      "HIST"
+    ],
+    "defaultDifficulty": "NORMAL",
+    "difficulties": {
+      "EASY": {
+        "enemyPool": [
+          {
+            "id": "E01",
+            "w": 5
+          },
+          {
+            "id": "E02",
+            "w": 5
+          }
+        ],
+        "question": {
+          "min": 1,
+          "max": 2
+        },
+        "drops": {
+          "seedBase": "ST02E",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_iron_sword",
+              "weight": 4
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 4
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 2
+            }
+          ]
+        }
+      },
+      "NORMAL": {
+        "enemyPool": [
+          {
+            "id": "E02",
+            "w": 7
+          },
+          {
+            "id": "E03",
+            "w": 3
+          }
+        ],
+        "question": {
+          "min": 2,
+          "max": 4
+        },
+        "drops": {
+          "seedBase": "ST02N",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_iron_sword",
+              "weight": 3
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 4
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 3
+            }
+          ]
+        }
+      },
+      "HARD": {
+        "enemyPool": [
+          {
+            "id": "E02",
+            "w": 5
+          },
+          {
+            "id": "E03",
+            "w": 5
+          }
+        ],
+        "question": {
+          "min": 3,
+          "max": 5
+        },
+        "drops": {
+          "seedBase": "ST02H",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_knight_blade",
+              "weight": 2
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 5
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 3
+            }
+          ]
+        }
+      }
+    }
+  },
+  "ST03": {
+    "id": "ST03",
+    "name": "동굴 3",
+    "packId": "sample",
+    "subjectPool": [
+      "KOR",
+      "ENG",
+      "MATH",
+      "SCI",
+      "SOC",
+      "HIST"
+    ],
+    "defaultDifficulty": "NORMAL",
+    "difficulties": {
+      "EASY": {
+        "enemyPool": [
+          {
+            "id": "E02",
+            "w": 6
+          },
+          {
+            "id": "E03",
+            "w": 4
+          }
+        ],
+        "question": {
+          "min": 2,
+          "max": 3
+        },
+        "drops": {
+          "seedBase": "ST03E",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_iron_sword",
+              "weight": 3
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 5
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 2
+            }
+          ]
+        }
+      },
+      "NORMAL": {
+        "enemyPool": [
+          {
+            "id": "E02",
+            "w": 4
+          },
+          {
+            "id": "E03",
+            "w": 6
+          }
+        ],
+        "question": {
+          "min": 3,
+          "max": 4
+        },
+        "drops": {
+          "seedBase": "ST03N",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_knight_blade",
+              "weight": 2
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 5
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 3
+            }
+          ]
+        }
+      },
+      "HARD": {
+        "enemyPool": [
+          {
+            "id": "E03",
+            "w": 9
+          },
+          {
+            "id": "E02",
+            "w": 1
+          }
+        ],
+        "question": {
+          "min": 4,
+          "max": 5
+        },
+        "drops": {
+          "seedBase": "ST03H",
+          "pulls": 1,
+          "entries": [
+            {
+              "kind": "item",
+              "id": "w_knight_blade",
+              "weight": 3
+            },
+            {
+              "kind": "item",
+              "id": "a_chain_mail",
+              "weight": 4
+            },
+            {
+              "kind": "item",
+              "id": "acc_lucky_charm",
+              "weight": 3
+            }
+          ]
+        }
+      }
+    }
+  }
+}
